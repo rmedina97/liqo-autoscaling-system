@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/anypb"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/externalgrpc/protos"
 )
 
@@ -16,9 +17,16 @@ type cloudProviderServer struct {
 	protos.UnimplementedCloudProviderServer
 }
 
+// Hardcoded invented type
+type GPUTypes struct {
+	Name  string
+	Specs string
+}
+
 // NodeGroups returns all node groups configured for this cloud provider.
 func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGroupsRequest) (*protos.NodeGroupsResponse, error) {
 	//here TODO the real computations
+	log.Printf("nodegroup")
 	return &protos.NodeGroupsResponse{
 		NodeGroups: []*protos.NodeGroup{
 			{
@@ -40,13 +48,24 @@ func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGr
 // be processed by cluster autoscaler.
 func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.NodeGroupForNodeRequest) (*protos.NodeGroupForNodeResponse, error) {
 	//here TODO the real computations
-	return &protos.NodeGroupForNodeResponse{
-		NodeGroup: &protos.NodeGroup{
-			Id:      "Sud",
-			MinSize: 1,
-			MaxSize: 1,
-		},
-	}, nil
+	log.Printf("nodegroupfornode")
+	if req.Node.Name == "capi-quickstart-q8x7b-jtm92" {
+		return &protos.NodeGroupForNodeResponse{
+			NodeGroup: &protos.NodeGroup{
+				Id:      "",
+				MinSize: 1,
+				MaxSize: 1,
+			},
+		}, nil
+	} else {
+		return &protos.NodeGroupForNodeResponse{
+			NodeGroup: &protos.NodeGroup{
+				Id:      "Sud",
+				MinSize: 1,
+				MaxSize: 1,
+			},
+		}, nil
+	}
 }
 
 // PricingNodePrice returns a theoretical minimum price of running a node for
@@ -76,7 +95,9 @@ func (c *cloudProviderServer) GPULabel(ctx context.Context, req *protos.GPULabel
 // GetAvailableGPUTypes return all available GPU types cloud provider supports.
 func (c *cloudProviderServer) GetAvailableGPUTypes(ctx context.Context, req *protos.GetAvailableGPUTypesRequest) (*protos.GetAvailableGPUTypesResponse, error) {
 	//here TODO the real computations
-	return nil, nil
+	return &protos.GetAvailableGPUTypesResponse{
+		GpuTypes: map[string]*anypb.Any{},
+	}, nil
 }
 
 // Cleanup cleans up open resources before the cloud provider is destroyed, i.e. go routines etc.
