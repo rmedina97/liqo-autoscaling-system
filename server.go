@@ -10,6 +10,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/externalgrpc/protos"
+
+	"os/exec"
 )
 
 // protos->package with the files definition (_grpc.pb.go and pb.go) born from the proto file
@@ -23,21 +25,24 @@ type GPUTypes struct {
 	Specs string
 }
 
+// hardcoded flag for increase size
+var test int = 1
+
 // NodeGroups returns all node groups configured for this cloud provider.
 func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGroupsRequest) (*protos.NodeGroupsResponse, error) {
 	//here TODO the real computations
-	log.Printf("nodegroup")
+	log.Printf("nodegroups")
 	return &protos.NodeGroupsResponse{
 		NodeGroups: []*protos.NodeGroup{
-			{
-				Id:      "Nord",
-				MinSize: 1,
-				MaxSize: 1,
-			},
+			//			{
+			//				Id:      "Nord",
+			//				MinSize: 1,
+			//				MaxSize: 1,
+			//			},
 			{
 				Id:      "Sud",
 				MinSize: 1,
-				MaxSize: 1,
+				MaxSize: 3,
 			},
 		},
 	}, nil
@@ -48,24 +53,27 @@ func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGr
 // be processed by cluster autoscaler.
 func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.NodeGroupForNodeRequest) (*protos.NodeGroupForNodeResponse, error) {
 	//here TODO the real computations
-	log.Printf("nodegroupfornode")
-	if req.Node.Name == "capi-quickstart-q8x7b-jtm92" {
-		return &protos.NodeGroupForNodeResponse{
-			NodeGroup: &protos.NodeGroup{
-				Id:      "",
-				MinSize: 1,
-				MaxSize: 1,
-			},
-		}, nil
-	} else {
-		return &protos.NodeGroupForNodeResponse{
-			NodeGroup: &protos.NodeGroup{
-				Id:      "Sud",
-				MinSize: 1,
-				MaxSize: 1,
-			},
-		}, nil
-	}
+	log.Printf("nodegroupfornode %s", req.Node.Name)
+	//	if req.Node.Name == "ubuntu-server-base" {
+	log.Printf("Return group for %s", req.Node.Name)
+	return &protos.NodeGroupForNodeResponse{
+		NodeGroup: &protos.NodeGroup{
+			Id:      "Sud",
+			MinSize: 1,
+			MaxSize: 3,
+		},
+	}, nil
+	//	}
+	//	else {
+	//		log.Printf("Return Sud for %s", req.Node.Name)
+	//		return &protos.NodeGroupForNodeResponse{
+	//			NodeGroup: &protos.NodeGroup{
+	//				Id:      "Sud",
+	//				MinSize: 1,
+	//				MaxSize: 3,
+	//			},
+	//		}, nil
+	//	}
 }
 
 // PricingNodePrice returns a theoretical minimum price of running a node for
@@ -118,9 +126,18 @@ func (c *cloudProviderServer) Refresh(ctx context.Context, req *protos.RefreshRe
 // registration or removed nodes are deleted completely).
 func (c *cloudProviderServer) NodeGroupTargetSize(ctx context.Context, req *protos.NodeGroupTargetSizeRequest) (*protos.NodeGroupTargetSizeResponse, error) {
 	//here TODO the real computations
-	return &protos.NodeGroupTargetSizeResponse{
-		TargetSize: 1,
-	}, nil
+	log.Printf("TARGET SIZE CURRENT OF  %s", req.Id)
+	if test == 2 {
+		log.Printf("TARGET SIZE CURRENT OF  %s is 2", req.Id)
+		return &protos.NodeGroupTargetSizeResponse{
+			TargetSize: 2,
+		}, nil
+	} else {
+		log.Printf("TARGET SIZE CURRENT OF  %s is 1", req.Id)
+		return &protos.NodeGroupTargetSizeResponse{
+			TargetSize: 1,
+		}, nil
+	}
 }
 
 // NodeGroupIncreaseSize increases the size of the node group. To delete a node you need
@@ -128,6 +145,44 @@ func (c *cloudProviderServer) NodeGroupTargetSize(ctx context.Context, req *prot
 // node group size is updated.
 func (c *cloudProviderServer) NodeGroupIncreaseSize(ctx context.Context, req *protos.NodeGroupIncreaseSizeRequest) (*protos.NodeGroupIncreaseSizeResponse, error) {
 	//here TODO the real computations
+	log.Printf("INCREASE SIZE of %s", req.Id)
+	//	cmd := exec.Command(
+	//		"ssh",
+	//		"-J", "bastion@ssh.crownlabs.polito.it",
+	//		"crownlabs@10.97.97.14",
+	//		"liqoctl", "peer", "out-of-band", "summer-lake",
+	//		"--auth-url", "https://172.16.203.62:31480",
+	//		"--cluster-id", "c704f93e-01a5-416b-b566-7c71e20419fe",
+	//		"--auth-token", "4251b18d033b4767640b3561568255785245679c79124dc40986a5fb44ca272fea9f9b92649fa6ad13ac6f9633943b9e4a73dd4437ee5e3bf3eeb350ccbe6cbb",
+	//	)
+	//	output, err := cmd.CombinedOutput()
+	//	if err != nil {
+	//		log.Printf("Error during SSH: %v", err)
+	//		return nil, err
+	//	}
+	if test == 1 {
+		log.Printf("Entro con test==1")
+		test = 2
+		go func() {
+			cmd := exec.Command(
+				"ssh",
+				"-J", "bastion@ssh.crownlabs.polito.it",
+				"crownlabs@10.97.97.14",
+				"liqoctl", "peer", "out-of-band", "remoto",
+				"--auth-url", "https://172.16.203.62:32745",
+				"--cluster-id", "3ff52aec-229b-4f9c-8eec-b699bbd3cb23",
+				"--auth-token", "3d65f1774aa52f3101491fcc831eac8cada1a0e4cb0a5e842c4456bb54fc4dcf3110f694a570ca321416846962294ebc7af1f756298bb64542f9c2e386537dca",
+			)
+			output, err := cmd.CombinedOutput()
+			log.Printf("Fine SSH")
+			if err != nil {
+				log.Printf("Error during SSH: %v", err)
+				return
+			}
+			log.Printf("Increase size %s", output)
+		}()
+	}
+	log.Printf("Increased size of nodegroup %s", req.Id)
 	return &protos.NodeGroupIncreaseSizeResponse{}, nil
 }
 
@@ -146,13 +201,39 @@ func (c *cloudProviderServer) NodeGroupDeleteNodes(ctx context.Context, req *pro
 // to just decrease the target.
 func (c *cloudProviderServer) NodeGroupDecreaseTargetSize(ctx context.Context, req *protos.NodeGroupDecreaseTargetSizeRequest) (*protos.NodeGroupDecreaseTargetSizeResponse, error) {
 	//here TODO the real computations
+	log.Printf("decrease SIZE of %s", req.Id)
 	return &protos.NodeGroupDecreaseTargetSizeResponse{}, nil
 }
 
 // NodeGroupNodes returns a list of all nodes that belong to this node group.
 func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.NodeGroupNodesRequest) (*protos.NodeGroupNodesResponse, error) {
 	//here TODO the real computations
-	return &protos.NodeGroupNodesResponse{}, nil
+	log.Printf("INFO ABOUT NODES OF NODEGROUPS")
+	//	if req.Id == "Sud" {
+	log.Printf("return sud")
+	return &protos.NodeGroupNodesResponse{
+		Instances: []*protos.Instance{
+			{
+				Id: "instance-zf6d5",
+				Status: &protos.InstanceStatus{
+					InstanceState: 1,
+				},
+			},
+		},
+	}, nil
+	//	} else {
+	//		log.Printf("return nord")
+	//		return &protos.NodeGroupNodesResponse{
+	//			Instances: []*protos.Instance{
+	//				{
+	//					Id: "kind-control-plane",
+	//					Status: &protos.InstanceStatus{
+	//						InstanceState: 1,
+	//					},
+	//				},
+	//			},
+	//		}, nil
+	//	}
 }
 
 // NodeGroupTemplateNodeInfo returns a structure of an empty (as if just started) node,
@@ -160,6 +241,8 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 // scale-up simulations to predict what would a new node look like if a node group was expanded.
 // Implementation optional: if unimplemented return error code 12 (for `Unimplemented`)
 func (c *cloudProviderServer) NodeGroupTemplateNodeInfo(ctx context.Context, req *protos.NodeGroupTemplateNodeInfoRequest) (*protos.NodeGroupTemplateNodeInfoResponse, error) {
+	log.Printf("INFO templateeeeeeeeeeee")
+	log.Printf("riguardo nodegroup %s", req.Id)
 	return nil, status.Error(codes.Unimplemented, "function NodeGroupTemplateNodeInfo is Unimplemented")
 }
 
