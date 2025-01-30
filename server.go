@@ -145,42 +145,25 @@ func (c *cloudProviderServer) NodeGroupTargetSize(ctx context.Context, req *prot
 // node group size is updated.
 func (c *cloudProviderServer) NodeGroupIncreaseSize(ctx context.Context, req *protos.NodeGroupIncreaseSizeRequest) (*protos.NodeGroupIncreaseSizeResponse, error) {
 	//here TODO the real computations
-	log.Printf("INCREASE SIZE of %s", req.Id)
-	//	cmd := exec.Command(
-	//		"ssh",
-	//		"-J", "bastion@ssh.crownlabs.polito.it",
-	//		"crownlabs@10.97.97.14",
-	//		"liqoctl", "peer", "out-of-band", "summer-lake",
-	//		"--auth-url", "https://172.16.203.62:31480",
-	//		"--cluster-id", "c704f93e-01a5-416b-b566-7c71e20419fe",
-	//		"--auth-token", "4251b18d033b4767640b3561568255785245679c79124dc40986a5fb44ca272fea9f9b92649fa6ad13ac6f9633943b9e4a73dd4437ee5e3bf3eeb350ccbe6cbb",
-	//	)
-	//	output, err := cmd.CombinedOutput()
-	//	if err != nil {
-	//		log.Printf("Error during SSH: %v", err)
-	//		return nil, err
-	//	}
 	if test == 1 {
-		log.Printf("Entro con test==1")
 		test = 2
-		go func() {
-			cmd := exec.Command(
-				"ssh",
-				"-J", "bastion@ssh.crownlabs.polito.it",
-				"crownlabs@10.97.97.14",
-				"liqoctl", "peer", "out-of-band", "remoto",
-				"--auth-url", "https://172.16.203.62:32745",
-				"--cluster-id", "3ff52aec-229b-4f9c-8eec-b699bbd3cb23",
-				"--auth-token", "3d65f1774aa52f3101491fcc831eac8cada1a0e4cb0a5e842c4456bb54fc4dcf3110f694a570ca321416846962294ebc7af1f756298bb64542f9c2e386537dca",
-			)
-			output, err := cmd.CombinedOutput()
-			log.Printf("Fine SSH")
-			if err != nil {
-				log.Printf("Error during SSH: %v", err)
-				return
-			}
-			log.Printf("Increase size %s", output)
-		}()
+		log.Printf("INCREASE SIZE of %s", req.Id)
+		cmd := exec.Command(
+			"ssh",
+			"-J", "bastion@ssh.crownlabs.polito.it",
+			"crownlabs@10.97.97.14",
+			"liqoctl", "peer", "out-of-band", "remoto",
+			"--auth-url", "https://172.16.203.62:32473",
+			"--cluster-id", "1b5f548d-630b-4a95-90e2-9157b5a560ba",
+			"--auth-token", "dea56520895f222a8575f58270f08df46a8249d7180da6b5b747dd9cd2d62261e704a3c1c9b21abfdb0094eb02e2e5401776634e64f6aca480549c423fbca936",
+		)
+		output, err := cmd.CombinedOutput()
+		log.Printf("Fine SSH")
+		if err != nil {
+			log.Printf("Error during SSH: %v", err)
+			//return nil,err
+		}
+		log.Printf(" %s", output)
 	}
 	log.Printf("Increased size of nodegroup %s", req.Id)
 	return &protos.NodeGroupIncreaseSizeResponse{}, nil
