@@ -26,7 +26,7 @@ type GPUTypes struct {
 }
 
 // hardcoded flag for increase size
-var test int = 1
+var test int = 2
 
 // NodeGroups returns all node groups configured for this cloud provider.
 func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGroupsRequest) (*protos.NodeGroupsResponse, error) {
@@ -174,6 +174,29 @@ func (c *cloudProviderServer) NodeGroupIncreaseSize(ctx context.Context, req *pr
 // doesn't belong to this node group. This function should wait until node group size is updated.
 func (c *cloudProviderServer) NodeGroupDeleteNodes(ctx context.Context, req *protos.NodeGroupDeleteNodesRequest) (*protos.NodeGroupDeleteNodesResponse, error) {
 	//here TODO the real computations
+	if test == 2 {
+		test = 1
+		log.Printf("DECREASE SIZE of %s NODEGROUP, DELETING NODE %s", req.Id, req.Nodes[0].Name)
+		log.Printf("list size is %d", len(req.Nodes))
+		log.Printf("list size is %d", len(req.Nodes))
+		for i, node := range req.Nodes {
+			log.Printf("Node %d: %s", i, node.Name)
+		}
+		log.Printf("Node fine loop")
+		cmd := exec.Command(
+			"ssh",
+			"-J", "bastion@ssh.crownlabs.polito.it",
+			"crownlabs@10.97.97.14",
+			"liqoctl", "unpeer", "remoto", "--skip-confirm",
+		)
+		output, err := cmd.CombinedOutput()
+		log.Printf("Fine SSH")
+		if err != nil {
+			log.Printf("Error during SSH: %v", err)
+			//return nil,err
+		}
+		log.Printf(" %s", output)
+	}
 	return &protos.NodeGroupDeleteNodesResponse{}, nil
 }
 
@@ -192,31 +215,37 @@ func (c *cloudProviderServer) NodeGroupDecreaseTargetSize(ctx context.Context, r
 func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.NodeGroupNodesRequest) (*protos.NodeGroupNodesResponse, error) {
 	//here TODO the real computations
 	log.Printf("INFO ABOUT NODES OF NODEGROUPS")
-	//	if req.Id == "Sud" {
-	log.Printf("return sud")
-	return &protos.NodeGroupNodesResponse{
-		Instances: []*protos.Instance{
-			{
-				Id: "instance-zf6d5",
-				Status: &protos.InstanceStatus{
-					InstanceState: 1,
+	if test == 1 {
+		log.Printf("return sud-> 1 node")
+		return &protos.NodeGroupNodesResponse{
+			Instances: []*protos.Instance{
+				{
+					Id: "instance-zf6d5",
+					Status: &protos.InstanceStatus{
+						InstanceState: 1,
+					},
 				},
 			},
-		},
-	}, nil
-	//	} else {
-	//		log.Printf("return nord")
-	//		return &protos.NodeGroupNodesResponse{
-	//			Instances: []*protos.Instance{
-	//				{
-	//					Id: "kind-control-plane",
-	//					Status: &protos.InstanceStatus{
-	//						InstanceState: 1,
-	//					},
-	//				},
-	//			},
-	//		}, nil
-	//	}
+		}, nil
+	} else {
+		log.Printf("return sud-> 2 nodes")
+		return &protos.NodeGroupNodesResponse{
+			Instances: []*protos.Instance{
+				{
+					Id: "instance-zf6d5",
+					Status: &protos.InstanceStatus{
+						InstanceState: 1,
+					},
+				},
+				{
+					Id: "liqo-remoto",
+					Status: &protos.InstanceStatus{
+						InstanceState: 1,
+					},
+				},
+			},
+		}, nil
+	}
 }
 
 // NodeGroupTemplateNodeInfo returns a structure of an empty (as if just started) node,
