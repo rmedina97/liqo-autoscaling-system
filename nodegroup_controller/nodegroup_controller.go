@@ -1,35 +1,34 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-
 	"net/http"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var nodegroupIdsCached = false
 var kubeconfig string
-var mapNode map[string]string
-var mapNodegroup map[string][]string
+
+// key is id node, value is node
+var mapNode = make(map[string]Node)
+
+// key is id nodegroup, value is nodegroup
+var mapNodegroup = make(map[string]Nodegroup)
 
 type Node struct {
-	Id string `json:"id"`
+	Id          string `json:"id"`
+	NodegroupId string `json:"nodegroupId"`
 	//TODO other info
 }
 
 type Nodegroup struct {
 	Id          string `json:"id"`
-	CurrentSize int    `json:"currentSize"`
+	CurrentSize int    `json:"currentSize"` //TODO delete from json? grpc ask for nodegroups and nodegroup for node doesn't ask it
 	MaxSize     int    `json:"maxSize"`
 	MinSize     int    `json:"minSize"`
-	Nodes       []Node
+	Nodes       []Node `json:"-"` //TODO maybe put only ids of the nodes?
 }
 
 type NodegroupId struct {
@@ -39,37 +38,50 @@ type NodegroupId struct {
 // Nodegroup list with all fields
 var nodegroupList []Nodegroup = make([]Nodegroup, 0, 5)
 
-// Nodegroup list with only the ids
-var nodegroupIdsList []NodegroupId = make([]NodegroupId, 0, 5)
-
+// TODO transfer case code inside functions
 func handleConnection(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/nodegroup": //Asks about all the nodegroup
 		// No existing Nodegroups
-		if len(nodegroupList) == 0 {
-			//TODO RETURN MESSAGE
+		if len(mapNodegroup) == 0 {
 			w.WriteHeader(http.StatusNoContent)
 		} else {
-			//TODO RETURN MESSAGE
 			// Check if it is cached
-			log.Printf("esiste la cache? %t", nodegroupIdsCached)
 			if !nodegroupIdsCached {
-				for _, nodegroup := range nodegroupList {
-					nodegroupIdsList = append(nodegroupIdsList, NodegroupId{Id: nodegroup.Id})
+				for _, nodegroup := range mapNodegroup {
+					nodegroupList = append(nodegroupList, nodegroup)
 				}
 				nodegroupIdsCached = true
-				log.Printf("caso not cached")
 			}
 			// Send response
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			if err := json.NewEncoder(w).Encode(nodegroupIdsList); err != nil {
+			if err := json.NewEncoder(w).Encode(nodegroupList); err != nil {
 				http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", err), http.StatusInternalServerError)
 			}
 
 		}
-	case "/nodegruop/ownership":
+	case "/nodegroup/ownership":
 		//ricerca tramite mappa chiave nodo valore nodegroup
+		queryParams := r.URL.Query()
+		node, exist := mapNode[queryParams.Get("id")]
+		if !exist { //TODO error node id doesn't exist
+			w.WriteHeader(http.StatusNoContent)
+			break
+		}
+		if node.NodegroupId != "" {
+			nodegroup := mapNodegroup[node.NodegroupId]
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			if err := json.NewEncoder(w).Encode(nodegroup); err != nil {
+				http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", err), http.StatusInternalServerError)
+			}
+
+		} else {
+			w.WriteHeader(http.StatusNoContent)
+		}
+	case "/nodegroup/current-size":
+
 	default:
 		log.Printf("wrong request")
 	}
@@ -102,7 +114,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%s", node.Name)
 	}
 
-}*/
+}
 
 func listNodeOfNodegroup() {
 	//read the kubeconfig locally
@@ -128,7 +140,7 @@ func listNodeOfNodegroup() {
 		log.Printf("%s", node.Name)
 	}
 
-}
+}*/
 
 // Controller pattern
 func startPeriodicFunction() {
@@ -138,10 +150,10 @@ func startPeriodicFunction() {
 func main() {
 
 	//go startPeriodicFunction()
-	//listNodegroups()
-	//listNodeOfNodegroup()
-	nodegroupList = append(nodegroupList, Nodegroup{Id: "uno", MaxSize: 3, MinSize: 1})
-	nodegroupList = append(nodegroupList, Nodegroup{Id: "due", MaxSize: 3, MinSize: 1})
+	mapNodegroup["primo nodegroup"] = Nodegroup{Id: "primo nodegroup", MaxSize: 3, MinSize: 1, CurrentSize: 2}
+	mapNodegroup["secondo nodegroup"] = Nodegroup{Id: "secondo nodegroup", MaxSize: 3, MinSize: 1, CurrentSize: 2}
+	mapNode["uno"] = Node{Id: "uno", NodegroupId: "primo nodegroup"}
+	mapNode["due"] = Node{Id: "due", NodegroupId: "secondo nodegroup"}
 
 	http.HandleFunc("/", handleConnection)
 
