@@ -38,14 +38,14 @@ type Node struct {
 
 type Nodegroup struct {
 	Id          string   `json:"id"`
-	CurrentSize int32    `json:"currentSize"` //TODO struct only with the required field
-	MaxSize     int32    `json:"maxSize"`
-	MinSize     int32    `json:"minSize"`
+	CurrentSize int      `json:"currentSize"` //TODO struct only with the required field
+	MaxSize     int      `json:"maxSize"`
+	MinSize     int      `json:"minSize"`
 	Nodes       []string `json:"nodes"` //TODO maybe put only ids of the nodes?
 }
 
 type NodegroupCurrentSize struct {
-	CurrentSize int32 `json:"currentSize"`
+	CurrentSize int `json:"currentSize"`
 }
 
 // Nodegroup list with all fields
@@ -54,91 +54,198 @@ var nodegroupList []Nodegroup = make([]Nodegroup, 0, 5)
 // Node list
 var nodeList []Node = make([]Node, 0, 5) // TODO what starting capacity is the best?
 
+// List of function inside the handle connection -------------------------------------------------------
+
+// getAllNodegroups get all the nodegroups
+func getAllNodegroups(w http.ResponseWriter, r *http.Request) {
+	// No existing Nodegroups
+	if len(mapNodegroup) == 0 {
+		writeGetResponse(w, r, nil)
+		w.WriteHeader(http.StatusNoContent)
+	} else {
+		// Check if it is cached
+		if !nodegroupIdsCached {
+			for _, nodegroup := range mapNodegroup {
+				nodegroupList = append(nodegroupList, nodegroup)
+			}
+			nodegroupIdsCached = true
+		}
+		writeGetResponse(w, r, nodegroupList)
+	}
+}
+
+// nodegroupForNode get the nodegroup for a specific node
+func getNodegroupForNode(w http.ResponseWriter, r *http.Request) {
+	queryParams := r.URL.Query()
+	node, exist := mapNode[queryParams.Get("id")]
+	if !exist { //TODO add different errors for node doesn't exist and he hasn't a nodegroup
+		writeGetResponse(w, r, nil)
+		return
+	}
+	if node.NodegroupId != "" {
+		nodegroup := mapNodegroup[node.NodegroupId]
+		writeGetResponse(w, r, nodegroup)
+	} else {
+		writeGetResponse(w, r, nil)
+	}
+
+}
+
+// getCurrentSize get the current size of a nodegroup
+func getCurrentSize(w http.ResponseWriter, r *http.Request) {
+	queryParams := r.URL.Query()
+	nodegroup, exist := mapNodegroup[queryParams.Get("id")]
+	if !exist { //TODO error node id doesn't exist
+		writeGetResponse(w, r, nil)
+		return
+	} else {
+		nodegroupCurrentSize := NodegroupCurrentSize{CurrentSize: nodegroup.CurrentSize}
+		writeGetResponse(w, r, nodegroupCurrentSize)
+	}
+}
+
+// getNodegroupNodes get all the nodes of a nodegroup
+func getNodegroupNodes(w http.ResponseWriter, r *http.Request) {
+	nodegroup, exist := mapNodegroup[r.URL.Query().Get("id")]
+	if !exist {
+		writeGetResponse(w, r, nil)
+	}
+	for _, node := range nodegroup.Nodes {
+		log.Printf("node %s che stampa", node)
+		nodeList = append(nodeList, mapNode[node])
+	}
+	writeGetResponse(w, r, nodeList)
+}
+
+// writeGetResponse write the response of a get request
+func writeGetResponse(w http.ResponseWriter, r *http.Request, data any) {
+
+	// Check what response send
+	if data == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", err), http.StatusInternalServerError)
+	}
+
+}
+
+// createNodegroup create a new nodegroup
+func createNodegroup(w http.ResponseWriter, r *http.Request) {
+	var newNodegroup Nodegroup
+	if err := json.NewDecoder(r.Body).Decode(&newNodegroup); err != nil {
+		http.Error(w, fmt.Sprintf("Errore decoding JSON: %v", err), http.StatusBadRequest)
+		return
+	}
+	if _, exists := mapNodegroup[newNodegroup.Id]; exists {
+		http.Error(w, "Nodegroup already exists", http.StatusConflict)
+		return
+	}
+	mapNodegroup[newNodegroup.Id] = newNodegroup
+	// TODO check if we need a lock on nodegroupiscached for the get all nodegroups
+	nodegroupList = append(nodegroupList, newNodegroup)
+	writeGetResponse(w, r, nodegroupList) // TODO add a flag is the best practice?
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(newNodegroup); err != nil {
+		http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", err), http.StatusInternalServerError)
+	}
+}
+
+// deleteNodegroup delete the target nodegroup
+func deleteNodegroup(w http.ResponseWriter, r *http.Request) {
+	queryParams := r.URL.Query()
+	nodegroupId := queryParams.Get("id")
+	if _, exists := mapNodegroup[nodegroupId]; !exists {
+		http.Error(w, "Nodegroup not found", http.StatusNotFound)
+		return
+	}
+	delete(mapNodegroup, nodegroupId)
+	// Remove the nodegroup from the list
+	for i, nodegroup := range nodegroupList {
+		if nodegroup.Id == nodegroupId {
+			nodegroupList = append(nodegroupList[:i], nodegroupList[i+1:]...)
+			break
+		}
+	}
+	// Update the cache flag if the list is empty
+	if len(nodegroupList) == 0 {
+		nodegroupIdsCached = false
+	}
+	w.WriteHeader(http.StatusOK) //--> TODO change the response in deleted and flag?
+}
+
+// scaleUpNodegroup scale up the nodegroup of a certain amount
+func scaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
+	queryParams := r.URL.Query()
+	//numberToAdd := queryParams.Get("deltaInt")
+	nodegroupId := queryParams.Get("id")
+	/*cmd := exec.Command(
+		"ssh",
+		"-J", "bastion@ssh.crownlabs.polito.it",
+		"crownlabs@10.97.97.14",
+		"liqoctl", "unpeer", "remoto", "--skip-confirm",
+	)
+	output, err := cmd.CombinedOutput()
+	log.Printf("Fine SSH")*/
+	mapNode["cinque"] = Node{Id: "cinque", NodegroupId: "secondo nodegroup"}
+	nodegroup := mapNodegroup[nodegroupId]
+	nodegroup.Nodes = append(nodegroup.Nodes, "cinque")
+	mapNodegroup[nodegroupId] = nodegroup
+	w.WriteHeader(http.StatusOK) //--> TODO change the response in created and flag?
+}
+
+// scaleDownNodegroup scale down the nodegroup killing a certain node
+func scaleDownNodegroup(w http.ResponseWriter, r *http.Request) {
+	queryParams := r.URL.Query()
+	nodegroupId := queryParams.Get("id")
+	nodeId := queryParams.Get("nodeId")
+	nodegroup := mapNodegroup[nodegroupId]
+	for i, node := range nodegroup.Nodes {
+		if node == nodeId { // Remove the node from the list
+			nodegroup.Nodes = append(nodegroup.Nodes[:i], nodegroup.Nodes[i+1:]...)
+			break
+		}
+	}
+	mapNodegroup[nodegroupId] = nodegroup
+	delete(mapNode, nodeId) // TODO search if delete also the key
+	w.WriteHeader(http.StatusOK)
+}
+
+// End of the list of function inside the handle connection------------------------------------------------
+
 // TODO transfer case code inside functions
 func handleConnection(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
-	case "/nodegroup": //Asks about all the nodegroup
-		// No existing Nodegroups
-		if len(mapNodegroup) == 0 {
-			w.WriteHeader(http.StatusNoContent)
-		} else {
-			// Check if it is cached
-			if !nodegroupIdsCached {
-				for _, nodegroup := range mapNodegroup {
-					nodegroupList = append(nodegroupList, nodegroup)
-				}
-				nodegroupIdsCached = true
-			}
-			// Send response
-			log.Printf("ecco la lista mandata dal controller %v", nodegroupList)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			if err := json.NewEncoder(w).Encode(nodegroupList); err != nil {
-				http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", err), http.StatusInternalServerError)
-			}
+	case "/nodegroup":
 
-		}
+		// Get all the nodegroup
+		getAllNodegroups(w, r)
 	case "/nodegroup/ownership":
-		//ricerca tramite mappa chiave nodo valore nodegroup
-		queryParams := r.URL.Query()
-		node, exist := mapNode[queryParams.Get("id")]
-		if !exist { //TODO error node id doesn't exist
-			w.WriteHeader(http.StatusNoContent)
-			break
-		}
-		if node.NodegroupId != "" {
-			nodegroup := mapNodegroup[node.NodegroupId]
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			if err := json.NewEncoder(w).Encode(nodegroup); err != nil {
-				http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", err), http.StatusInternalServerError)
-			}
 
-		} else {
-			w.WriteHeader(http.StatusNoContent)
-		}
+		// Get the nodegroup of a specific node
+		getNodegroupForNode(w, r)
 	case "/nodegroup/current-size":
-		queryParams := r.URL.Query()
-		nodegroup, exist := mapNodegroup[queryParams.Get("id")]
-		if !exist { //TODO error node id doesn't exist
-			w.WriteHeader(http.StatusNoContent)
-			break
-		} else {
-			nodegroupCurrentSize := NodegroupCurrentSize{CurrentSize: nodegroup.CurrentSize}
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			if err := json.NewEncoder(w).Encode(nodegroupCurrentSize); err != nil {
-				http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", err), http.StatusInternalServerError)
-			}
-		}
+
+		// Get the current size of a specific nodegroup
+		getCurrentSize(w, r)
+
 	case "/gpu/label":
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(gpuLabel); err != nil {
-			http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", err), http.StatusInternalServerError)
-		}
+
+		//TODO CRUD functions for gpu label or a search
+		writeGetResponse(w, r, gpuLabel)
 	case "/gpu/types":
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(gpuLabelsList); err != nil {
-			http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", err), http.StatusInternalServerError)
-		}
+
+		//TODO CRUD functions for gpu label or a search
+		writeGetResponse(w, r, gpuLabelsList)
 	case "/nodegroup/nodes":
-		nodegroup, exist := mapNodegroup[r.URL.Query().Get("id")]
-		log.Printf("nodegroup %s", nodegroup.Id)
-		if !exist {
-			w.WriteHeader(http.StatusNoContent)
-		}
-		for _, node := range nodegroup.Nodes {
-			log.Printf("node %s che stampa", node)
-			nodeList = append(nodeList, mapNode[node])
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(nodeList); err != nil {
-			http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", err), http.StatusInternalServerError)
-		}
+
+		// Get all the nodes of a nodegroup
+		getNodegroupNodes(w, r)
 	case "/nodegroup/create":
+		createNodegroup(w, r)
 		var newNodegroup Nodegroup
 		if err := json.NewDecoder(r.Body).Decode(&newNodegroup); err != nil {
 			http.Error(w, fmt.Sprintf("Errore decoding JSON: %v", err), http.StatusBadRequest)
@@ -156,6 +263,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", err), http.StatusInternalServerError)
 		}
 	case "/nodegroup/destroy":
+		deleteNodegroup(w, r)
 		queryParams := r.URL.Query()
 		nodegroupId := queryParams.Get("id")
 		if _, exists := mapNodegroup[nodegroupId]; !exists {
@@ -176,6 +284,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusOK)
 	case "/nodegroup/scaleup":
+		scaleUpNodegroup(w, r)
 		queryParams := r.URL.Query()
 		//numberToAdd := queryParams.Get("deltaInt")
 		nodegroupId := queryParams.Get("id")
@@ -193,6 +302,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		mapNodegroup[nodegroupId] = nodegroup
 		w.WriteHeader(http.StatusOK)
 	case "/nodegroup/scaledown":
+		scaleDownNodegroup(w, r)
 		queryParams := r.URL.Query()
 		nodegroupId := queryParams.Get("id")
 		nodeId := queryParams.Get("nodeId")
