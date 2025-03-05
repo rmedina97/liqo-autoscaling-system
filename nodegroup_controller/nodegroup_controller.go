@@ -60,7 +60,7 @@ var nodeList []Node = make([]Node, 0, 5) // TODO what starting capacity is the b
 func getAllNodegroups(w http.ResponseWriter, r *http.Request) {
 	// No existing Nodegroups
 	if len(mapNodegroup) == 0 {
-		writeGetResponse(w, r, nil)
+		writeGetResponse(w, http.StatusNotFound, nil, "Nodegroups not found")
 		w.WriteHeader(http.StatusNoContent)
 	} else {
 		// Check if it is cached
@@ -70,7 +70,7 @@ func getAllNodegroups(w http.ResponseWriter, r *http.Request) {
 			}
 			nodegroupIdsCached = true
 		}
-		writeGetResponse(w, r, nodegroupList)
+		writeGetResponse(w, http.StatusOK, nodegroupList, "")
 	}
 }
 
@@ -79,14 +79,14 @@ func getNodegroupForNode(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	node, exist := mapNode[queryParams.Get("id")]
 	if !exist { //TODO add different errors for node doesn't exist and he hasn't a nodegroup
-		writeGetResponse(w, r, nil)
+		writeGetResponse(w, http.StatusNotFound, nil, "Node not found")
 		return
 	}
 	if node.NodegroupId != "" {
 		nodegroup := mapNodegroup[node.NodegroupId]
-		writeGetResponse(w, r, nodegroup)
+		writeGetResponse(w, http.StatusOK, nodegroup, "")
 	} else {
-		writeGetResponse(w, r, nil)
+		writeGetResponse(w, http.StatusNotFound, nil, "Nodegroup not found")
 	}
 
 }
@@ -96,11 +96,11 @@ func getCurrentSize(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	nodegroup, exist := mapNodegroup[queryParams.Get("id")]
 	if !exist { //TODO error node id doesn't exist
-		writeGetResponse(w, r, nil)
+		writeGetResponse(w, http.StatusNotFound, nil, "Nodegroup not found")
 		return
 	} else {
 		nodegroupCurrentSize := NodegroupCurrentSize{CurrentSize: nodegroup.CurrentSize}
-		writeGetResponse(w, r, nodegroupCurrentSize)
+		writeGetResponse(w, http.StatusOK, nodegroupCurrentSize, "")
 	}
 }
 
@@ -108,29 +108,26 @@ func getCurrentSize(w http.ResponseWriter, r *http.Request) {
 func getNodegroupNodes(w http.ResponseWriter, r *http.Request) {
 	nodegroup, exist := mapNodegroup[r.URL.Query().Get("id")]
 	if !exist {
-		writeGetResponse(w, r, nil)
+		writeGetResponse(w, http.StatusNotFound, nil, "Nodegroup not found")
 	}
 	for _, node := range nodegroup.Nodes {
-		log.Printf("node %s che stampa", node)
 		nodeList = append(nodeList, mapNode[node])
 	}
-	writeGetResponse(w, r, nodeList)
+	// TODO need to differentiate empty and full?
+	writeGetResponse(w, http.StatusOK, nodeList, "")
 }
 
 // writeGetResponse write the response of a get request
-func writeGetResponse(w http.ResponseWriter, r *http.Request, data any) {
-
-	// Check what response send
-	if data == nil {
-		w.WriteHeader(http.StatusNoContent)
+func writeGetResponse(w http.ResponseWriter, statusCode int, data any, errMsg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	if errMsg != "" {
+		http.Error(w, errMsg, statusCode)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", err), http.StatusInternalServerError)
 	}
-
 }
 
 // createNodegroup create a new nodegroup
@@ -141,17 +138,13 @@ func createNodegroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, exists := mapNodegroup[newNodegroup.Id]; exists {
-		http.Error(w, "Nodegroup already exists", http.StatusConflict)
+		writeGetResponse(w, http.StatusConflict, nil, "Nodegroup already exists")
 		return
 	}
 	mapNodegroup[newNodegroup.Id] = newNodegroup
 	// TODO check if we need a lock on nodegroupiscached for the get all nodegroups
 	nodegroupList = append(nodegroupList, newNodegroup)
-	writeGetResponse(w, r, nodegroupList) // TODO add a flag is the best practice?
-	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(newNodegroup); err != nil {
-		http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", err), http.StatusInternalServerError)
-	}
+	writeGetResponse(w, http.StatusCreated, nil, "")
 }
 
 // deleteNodegroup delete the target nodegroup
@@ -159,7 +152,7 @@ func deleteNodegroup(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	nodegroupId := queryParams.Get("id")
 	if _, exists := mapNodegroup[nodegroupId]; !exists {
-		http.Error(w, "Nodegroup not found", http.StatusNotFound)
+		writeGetResponse(w, http.StatusNotFound, nil, "Nodegroup not found")
 		return
 	}
 	delete(mapNodegroup, nodegroupId)
@@ -174,7 +167,7 @@ func deleteNodegroup(w http.ResponseWriter, r *http.Request) {
 	if len(nodegroupList) == 0 {
 		nodegroupIdsCached = false
 	}
-	w.WriteHeader(http.StatusOK) //--> TODO change the response in deleted and flag?
+	writeGetResponse(w, http.StatusNoContent, nil, "")
 }
 
 // scaleUpNodegroup scale up the nodegroup of a certain amount
@@ -194,7 +187,7 @@ func scaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
 	nodegroup := mapNodegroup[nodegroupId]
 	nodegroup.Nodes = append(nodegroup.Nodes, "cinque")
 	mapNodegroup[nodegroupId] = nodegroup
-	w.WriteHeader(http.StatusOK) //--> TODO change the response in created and flag?
+	writeGetResponse(w, http.StatusOK, nil, "")
 }
 
 // scaleDownNodegroup scale down the nodegroup killing a certain node
@@ -210,8 +203,8 @@ func scaleDownNodegroup(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	mapNodegroup[nodegroupId] = nodegroup
-	delete(mapNode, nodeId) // TODO search if delete also the key
-	w.WriteHeader(http.StatusOK)
+	delete(mapNode, nodeId)
+	writeGetResponse(w, http.StatusNoContent, nil, "")
 }
 
 // End of the list of function inside the handle connection------------------------------------------------
@@ -223,10 +216,12 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 
 		// Get all the nodegroup
 		getAllNodegroups(w, r)
+
 	case "/nodegroup/ownership":
 
 		// Get the nodegroup of a specific node
 		getNodegroupForNode(w, r)
+
 	case "/nodegroup/current-size":
 
 		// Get the current size of a specific nodegroup
@@ -235,87 +230,38 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 	case "/gpu/label":
 
 		//TODO CRUD functions for gpu label or a search
-		writeGetResponse(w, r, gpuLabel)
+		writeGetResponse(w, http.StatusOK, gpuLabel, "")
+
 	case "/gpu/types":
 
 		//TODO CRUD functions for gpu label or a search
-		writeGetResponse(w, r, gpuLabelsList)
+		writeGetResponse(w, http.StatusOK, gpuLabelsList, "")
+
 	case "/nodegroup/nodes":
 
 		// Get all the nodes of a nodegroup
 		getNodegroupNodes(w, r)
+
 	case "/nodegroup/create":
+
+		// Create a new nodegroup
 		createNodegroup(w, r)
-		var newNodegroup Nodegroup
-		if err := json.NewDecoder(r.Body).Decode(&newNodegroup); err != nil {
-			http.Error(w, fmt.Sprintf("Errore decoding JSON: %v", err), http.StatusBadRequest)
-			return
-		}
-		if _, exists := mapNodegroup[newNodegroup.Id]; exists {
-			http.Error(w, "Nodegroup already exists", http.StatusConflict)
-			return
-		}
-		mapNodegroup[newNodegroup.Id] = newNodegroup
-		// TODO check if we need a lock on nodegroupiscached for the get all nodegroups
-		nodegroupList = append(nodegroupList, newNodegroup)
-		w.WriteHeader(http.StatusCreated)
-		if err := json.NewEncoder(w).Encode(newNodegroup); err != nil {
-			http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", err), http.StatusInternalServerError)
-		}
+
 	case "/nodegroup/destroy":
+
+		// Delete the target nodegroup
 		deleteNodegroup(w, r)
-		queryParams := r.URL.Query()
-		nodegroupId := queryParams.Get("id")
-		if _, exists := mapNodegroup[nodegroupId]; !exists {
-			http.Error(w, "Nodegroup not found", http.StatusNotFound)
-			return
-		}
-		delete(mapNodegroup, nodegroupId)
-		// Remove the nodegroup from the list
-		for i, nodegroup := range nodegroupList {
-			if nodegroup.Id == nodegroupId {
-				nodegroupList = append(nodegroupList[:i], nodegroupList[i+1:]...)
-				break
-			}
-		}
-		// Update the cache flag if the list is empty
-		if len(nodegroupList) == 0 {
-			nodegroupIdsCached = false
-		}
-		w.WriteHeader(http.StatusOK)
+
 	case "/nodegroup/scaleup":
+
+		// Scale up the nodegroup of a certain amount
 		scaleUpNodegroup(w, r)
-		queryParams := r.URL.Query()
-		//numberToAdd := queryParams.Get("deltaInt")
-		nodegroupId := queryParams.Get("id")
-		/*cmd := exec.Command(
-			"ssh",
-			"-J", "bastion@ssh.crownlabs.polito.it",
-			"crownlabs@10.97.97.14",
-			"liqoctl", "unpeer", "remoto", "--skip-confirm",
-		)
-		output, err := cmd.CombinedOutput()
-		log.Printf("Fine SSH")*/
-		mapNode["cinque"] = Node{Id: "cinque", NodegroupId: "secondo nodegroup"}
-		nodegroup := mapNodegroup[nodegroupId]
-		nodegroup.Nodes = append(nodegroup.Nodes, "cinque")
-		mapNodegroup[nodegroupId] = nodegroup
-		w.WriteHeader(http.StatusOK)
+
 	case "/nodegroup/scaledown":
+
+		// Scale down the nodegroup killing a certain node
 		scaleDownNodegroup(w, r)
-		queryParams := r.URL.Query()
-		nodegroupId := queryParams.Get("id")
-		nodeId := queryParams.Get("nodeId")
-		nodegroup := mapNodegroup[nodegroupId]
-		for i, node := range nodegroup.Nodes {
-			if node == nodeId { // Remove the node from the list
-				nodegroup.Nodes = append(nodegroup.Nodes[:i], nodegroup.Nodes[i+1:]...)
-				break
-			}
-		}
-		mapNodegroup[nodegroupId] = nodegroup
-		delete(mapNode, nodeId)
-		w.WriteHeader(http.StatusOK)
+
 	default:
 		log.Printf("wrong request")
 	}
@@ -377,9 +323,9 @@ func listNodeOfNodegroup() {
 }*/
 
 // Controller pattern
-func startPeriodicFunction() {
+/*func startPeriodicFunction() {
 	panic("unimplemented")
-}
+}*/
 
 func main() {
 
