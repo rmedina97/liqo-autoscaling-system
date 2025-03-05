@@ -1,7 +1,9 @@
-package server_grpc
+package main
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 
@@ -11,8 +13,20 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/externalgrpc/protos"
 
+	"net/http"
 	"os/exec"
 )
+
+// HERE START PERSONAL STRUCTS
+type Nodegroup struct {
+	Id          string   `json:"id"`
+	CurrentSize int32    `json:"currentSize"` //TODO struct only with the required field
+	MaxSize     int32    `json:"maxSize"`
+	MinSize     int32    `json:"minSize"`
+	Nodes       []string `json:"nodes"` //TODO maybe put only ids of the nodes?
+}
+
+// HERE END PERSONAL STRUCTS
 
 // protos->package with the files definition (_grpc.pb.go and pb.go) born from the proto file
 type cloudProviderServer struct {
@@ -30,16 +44,43 @@ var test int = 1
 
 // NodeGroups returns all node groups configured for this cloud provider.
 func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGroupsRequest) (*protos.NodeGroupsResponse, error) {
-	//here TODO the real computations
+
+	// Send a GET request to the nodegroup controller
+	reply, err := http.Get("http://localhost:9009/nodegroup")
+	if err != nil {
+		log.Printf("Error during HTTP request: %v", err)
+	}
+	defer reply.Body.Close()
+
+	// Check the response status code
+	if reply.StatusCode == http.StatusNoContent {
+		return &protos.NodeGroupsResponse{}, nil //TODO probably there is a specific error
+	} else if reply.StatusCode != http.StatusOK {
+		log.Printf("errore: server ha risposto con status %d", reply.StatusCode)
+		return nil, nil
+	}
+
+	// Decode the JSON response
+	var nodeGroups []Nodegroup
+	if err := json.NewDecoder(reply.Body).Decode(&nodeGroups); err != nil {
+		return nil, fmt.Errorf("errore nel decoding JSON: %v", err)
+	}
+
+	// Convert the response to the protos format
+	protoNodeGroups := make([]*protos.NodeGroup, len(nodeGroups))
+	for i, nodegroup := range nodeGroups {
+		log.Printf("iterazione n %d, nodegroup %v", i, nodegroup)
+		protoNodeGroups[i] = &protos.NodeGroup{
+			Id:      nodegroup.Id,
+			MinSize: nodegroup.MinSize,
+			MaxSize: nodegroup.MaxSize,
+		}
+	}
+	// Return the response
 	return &protos.NodeGroupsResponse{
-		NodeGroups: []*protos.NodeGroup{
-			{
-				Id:      "Sud",
-				MinSize: 1,
-				MaxSize: 3,
-			},
-		},
+		NodeGroups: protoNodeGroups,
 	}, nil
+
 }
 
 // NodeGroupForNode returns the node group for the given node.

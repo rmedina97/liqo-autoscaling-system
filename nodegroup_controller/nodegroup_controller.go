@@ -38,14 +38,14 @@ type Node struct {
 
 type Nodegroup struct {
 	Id          string   `json:"id"`
-	CurrentSize int      `json:"currentSize"` //TODO struct only with the required field
-	MaxSize     int      `json:"maxSize"`
-	MinSize     int      `json:"minSize"`
+	CurrentSize int32    `json:"currentSize"` //TODO struct only with the required field
+	MaxSize     int32    `json:"maxSize"`
+	MinSize     int32    `json:"minSize"`
 	Nodes       []string `json:"nodes"` //TODO maybe put only ids of the nodes?
 }
 
 type NodegroupCurrentSize struct {
-	CurrentSize int `json:"currentSize"`
+	CurrentSize int32 `json:"currentSize"`
 }
 
 // Nodegroup list with all fields
@@ -70,6 +70,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 				nodegroupIdsCached = true
 			}
 			// Send response
+			log.Printf("ecco la lista mandata dal controller %v", nodegroupList)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			if err := json.NewEncoder(w).Encode(nodegroupList); err != nil {
