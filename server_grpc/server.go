@@ -17,7 +17,7 @@ import (
 	"os/exec"
 )
 
-// HERE START PERSONAL STRUCTS
+// HERE START PERSONAL STRUCTS---------------// HERE START PERSONAL STRUCTS	---------------// HERE START PERSONAL STRUCTS
 type Nodegroup struct {
 	Id          string   `json:"id"`
 	CurrentSize int32    `json:"currentSize"` //TODO struct only with the required field
@@ -26,13 +26,14 @@ type Nodegroup struct {
 	Nodes       []string `json:"nodes"` //TODO maybe put only ids of the nodes?
 }
 
-// HERE END PERSONAL STRUCTS
+// HERE END PERSONAL STRUCTS---------------// HERE END PERSONAL STRUCTS	---------------// HERE END PERSONAL STRUCTS
 
 // protos->package with the files definition (_grpc.pb.go and pb.go) born from the proto file
 type cloudProviderServer struct {
 	protos.UnimplementedCloudProviderServer
 }
 
+// HERE START HARDCODED COMPONENTS---------------// HERE START HARDCODED COMPONENTS	---------------// HERE START HARDCODED COMPONENTS
 // Hardcoded invented type
 type GPUTypes struct {
 	Name  string
@@ -42,13 +43,16 @@ type GPUTypes struct {
 // hardcoded flag for increase size
 var test int = 1
 
+// HERE END HARDCODED COMPONENTS---------------// HERE END HARDCODED COMPONENTS	---------------// HERE END HARDCODED COMPONENTS
+
 // NodeGroups returns all node groups configured for this cloud provider.
 func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGroupsRequest) (*protos.NodeGroupsResponse, error) {
 
 	// Send a GET request to the nodegroup controller
-	reply, err := http.Get("http://localhost:9009/nodegroup")
+	reply, err := http.Get("http://localhost:9009/nodegroup") // TODO create a parameter
 	if err != nil {
 		log.Printf("Error during HTTP request: %v", err)
+		//return nil,err // TODO probably there is a specific error
 	}
 	defer reply.Body.Close()
 
@@ -87,14 +91,44 @@ func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGr
 // The node group id is an empty string if the node should not
 // be processed by cluster autoscaler.
 func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.NodeGroupForNodeRequest) (*protos.NodeGroupForNodeResponse, error) {
+
 	//here TODO the real computations
-	log.Printf("NOME NODO PER CUI VUOLE SAPERE NODEGROUP %s", req.Node.Name)
+
+	// Take the parameter
+	nodeId := req.Node.ProviderID
+	url := fmt.Sprintf("http://localhost:9009/nodegroup/ownership?id=%s", nodeId)
+	// Send a GET request to the nodegroup controller
+	reply, err := http.Get(url) // TODO create a better parameter, maybe using something more complex like DefaultClient
+	if err != nil {
+		log.Printf("Error during HTTP request: %v", err)
+		//return nil,err // TODO probably there is a specific error
+	}
+	defer reply.Body.Close()
+
+	// Check the response status code
+	if reply.StatusCode == http.StatusNoContent {
+		return &protos.NodeGroupForNodeResponse{}, nil //TODO probably there is a specific error
+	} else if reply.StatusCode != http.StatusOK {
+		log.Printf("errore: server ha risposto con status %d", reply.StatusCode)
+		return nil, nil
+	}
+
+	// Decode the JSON response
+	var nodeGroup Nodegroup
+	if err := json.NewDecoder(reply.Body).Decode(&nodeGroup); err != nil {
+		return nil, fmt.Errorf("errore nel decoding JSON: %v", err)
+	}
+
+	// Convert the response to the protos format
+	protoNodeGroup := &protos.NodeGroup{
+		Id:      nodeGroup.Id,
+		MinSize: nodeGroup.MinSize,
+		MaxSize: nodeGroup.MaxSize,
+	}
+
+	// Return the response
 	return &protos.NodeGroupForNodeResponse{
-		NodeGroup: &protos.NodeGroup{
-			Id:      "Sud",
-			MinSize: 1,
-			MaxSize: 3,
-		},
+		NodeGroup: protoNodeGroup,
 	}, nil
 }
 

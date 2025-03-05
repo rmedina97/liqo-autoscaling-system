@@ -38,15 +38,15 @@ type Node struct {
 
 type Nodegroup struct {
 	Id          string   `json:"id"`
-	CurrentSize int      `json:"currentSize"` //TODO struct only with the required field
-	MaxSize     int      `json:"maxSize"`
-	MinSize     int      `json:"minSize"`
+	CurrentSize int32    `json:"currentSize"` //TODO struct only with the required field
+	MaxSize     int32    `json:"maxSize"`
+	MinSize     int32    `json:"minSize"`
 	Nodes       []string `json:"nodes"` //TODO maybe put only ids of the nodes?
 }
 
-type NodegroupCurrentSize struct {
-	CurrentSize int `json:"currentSize"`
-}
+//type NodegroupCurrentSize struct {
+//	CurrentSize int32 `json:"currentSize"`
+//}
 
 // Nodegroup list with all fields
 var nodegroupList []Nodegroup = make([]Nodegroup, 0, 5)
@@ -57,7 +57,7 @@ var nodeList []Node = make([]Node, 0, 5) // TODO what starting capacity is the b
 // List of function inside the handle connection -------------------------------------------------------
 
 // getAllNodegroups get all the nodegroups
-func getAllNodegroups(w http.ResponseWriter, r *http.Request) {
+func getAllNodegroups(w http.ResponseWriter) {
 	// No existing Nodegroups
 	if len(mapNodegroup) == 0 {
 		writeGetResponse(w, http.StatusNotFound, nil, "Nodegroups not found")
@@ -99,8 +99,8 @@ func getCurrentSize(w http.ResponseWriter, r *http.Request) {
 		writeGetResponse(w, http.StatusNotFound, nil, "Nodegroup not found")
 		return
 	} else {
-		nodegroupCurrentSize := NodegroupCurrentSize{CurrentSize: nodegroup.CurrentSize}
-		writeGetResponse(w, http.StatusOK, nodegroupCurrentSize, "")
+		//nodegroupCurrentSize := NodegroupCurrentSize{CurrentSize: nodegroup.CurrentSize}
+		writeGetResponse(w, http.StatusOK, nodegroup, "")
 	}
 }
 
@@ -215,7 +215,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 	case "/nodegroup":
 
 		// Get all the nodegroup
-		getAllNodegroups(w, r)
+		getAllNodegroups(w)
 
 	case "/nodegroup/ownership":
 
