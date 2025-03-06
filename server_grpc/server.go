@@ -14,7 +14,6 @@ import (
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/externalgrpc/protos"
 
 	"net/http"
-	"os/exec"
 )
 
 // HERE START PERSONAL STRUCTS---------------// HERE START PERSONAL STRUCTS	---------------// HERE START PERSONAL STRUCTS
@@ -24,6 +23,11 @@ type Nodegroup struct {
 	MaxSize     int32    `json:"maxSize"`
 	MinSize     int32    `json:"minSize"`
 	Nodes       []string `json:"nodes"` //TODO maybe put only ids of the nodes?
+}
+
+type Node struct {
+	Id          string `json:"id"`
+	NodegroupId string `json:"nodegroupId"`
 }
 
 // HERE END PERSONAL STRUCTS---------------// HERE END PERSONAL STRUCTS	---------------// HERE END PERSONAL STRUCTS
@@ -151,18 +155,68 @@ func (c *cloudProviderServer) PricingPodPrice(ctx context.Context, req *protos.P
 // GPULabel returns the label added to nodes with GPU resource.
 func (c *cloudProviderServer) GPULabel(ctx context.Context, req *protos.GPULabelRequest) (*protos.GPULabelResponse, error) {
 	//here TODO the real computations
-	log.Printf("Requested label for gpu nodes")
+
+	// Send a GET request to the nodegroup controller
+	reply, err := http.Get("http://localhost:9009/gpu/label") // TODO create a parameter
+	if err != nil {
+		log.Printf("Error during HTTP request: %v", err)
+		//return nil,err // TODO probably there is a specific error
+	}
+	defer reply.Body.Close()
+
+	// Check the response status code
+	if reply.StatusCode == http.StatusNoContent {
+		return &protos.GPULabelResponse{}, nil //TODO probably there is a specific error
+	} else if reply.StatusCode != http.StatusOK {
+		log.Printf("errore: server ha risposto con status %d", reply.StatusCode)
+		return nil, nil
+	}
+
+	// Decode the JSON response
+	var gpuLabel string
+	if err := json.NewDecoder(reply.Body).Decode(&gpuLabel); err != nil {
+		return nil, fmt.Errorf("errore nel decoding JSON: %v", err)
+	}
+
 	return &protos.GPULabelResponse{
-		Label: "gpu=yes",
+		Label: gpuLabel,
 	}, nil
 }
 
 // GetAvailableGPUTypes return all available GPU types cloud provider supports.
 func (c *cloudProviderServer) GetAvailableGPUTypes(ctx context.Context, req *protos.GetAvailableGPUTypesRequest) (*protos.GetAvailableGPUTypesResponse, error) {
 	//here TODO the real computations
-	log.Printf("Requested the available gpu types")
+
+	// Send a GET request to the nodegroup controller
+	reply, err := http.Get("http://localhost:9009/gpu/types") // TODO create a parameter
+	if err != nil {
+		log.Printf("Error during HTTP request: %v", err)
+		//return nil,err // TODO probably there is a specific error
+	}
+	defer reply.Body.Close()
+
+	// Check the response status code
+	if reply.StatusCode == http.StatusNoContent {
+		return &protos.GetAvailableGPUTypesResponse{}, nil //TODO probably there is a specific error
+	} else if reply.StatusCode != http.StatusOK {
+		log.Printf("errore: server ha risposto con status %d", reply.StatusCode)
+		return nil, nil
+	}
+
+	// Decode the JSON response
+	var gpuLabels []string
+	if err := json.NewDecoder(reply.Body).Decode(&gpuLabels); err != nil {
+		return nil, fmt.Errorf("errore nel decoding JSON: %v", err)
+	}
+
+	// Convert the response to the protos format
+	mapGpu := map[string]*anypb.Any{}
+	for _, label := range gpuLabels {
+		mapGpu[label] = &anypb.Any{}
+	}
+
 	return &protos.GetAvailableGPUTypesResponse{
-		GpuTypes: map[string]*anypb.Any{},
+		GpuTypes: mapGpu,
 	}, nil
 }
 
@@ -184,17 +238,36 @@ func (c *cloudProviderServer) Refresh(ctx context.Context, req *protos.RefreshRe
 // registration or removed nodes are deleted completely).
 func (c *cloudProviderServer) NodeGroupTargetSize(ctx context.Context, req *protos.NodeGroupTargetSizeRequest) (*protos.NodeGroupTargetSizeResponse, error) {
 	//here TODO the real computations
-	if test == 2 {
-		log.Printf("TARGET SIZE CURRENT OF  %s is 2", req.Id)
-		return &protos.NodeGroupTargetSizeResponse{
-			TargetSize: 2,
-		}, nil
-	} else {
-		log.Printf("TARGET SIZE CURRENT OF  %s is 1", req.Id)
-		return &protos.NodeGroupTargetSizeResponse{
-			TargetSize: 1,
-		}, nil
+
+	// Take the parameter
+	nodeId := req.Id
+	url := fmt.Sprintf("http://localhost:9009/nodegroup/current-size?id=%s", nodeId)
+
+	// Send a GET request to the nodegroup controller
+	reply, err := http.Get(url) // TODO create a parameter
+	if err != nil {
+		log.Printf("Error during HTTP request: %v", err)
+		//return nil,err // TODO probably there is a specific error
 	}
+	defer reply.Body.Close()
+
+	// Check the response status code
+	if reply.StatusCode == http.StatusNoContent {
+		return &protos.NodeGroupTargetSizeResponse{}, nil //TODO probably there is a specific error
+	} else if reply.StatusCode != http.StatusOK {
+		log.Printf("errore: server ha risposto con status %d", reply.StatusCode)
+		return nil, nil
+	}
+
+	// Decode the JSON response
+	var currentSize Nodegroup
+	if err := json.NewDecoder(reply.Body).Decode(&currentSize); err != nil {
+		return nil, fmt.Errorf("errore nel decoding JSON: %v", err)
+	}
+
+	return &protos.NodeGroupTargetSizeResponse{
+		TargetSize: currentSize.CurrentSize,
+	}, nil
 }
 
 // NodeGroupIncreaseSize increases the size of the node group. To delete a node you need
@@ -202,27 +275,29 @@ func (c *cloudProviderServer) NodeGroupTargetSize(ctx context.Context, req *prot
 // node group size is updated.
 func (c *cloudProviderServer) NodeGroupIncreaseSize(ctx context.Context, req *protos.NodeGroupIncreaseSizeRequest) (*protos.NodeGroupIncreaseSizeResponse, error) {
 	//here TODO the real computations
-	if test == 1 {
-		test = 2
-		log.Printf("INCREASE SIZE of nodegroup %s", req.Id)
-		cmd := exec.Command(
-			"ssh",
-			"-J", "bastion@ssh.crownlabs.polito.it",
-			"crownlabs@10.97.97.14",
-			"liqoctl", "peer", "out-of-band", "remoto",
-			"--auth-url", "https://172.16.203.62:32473",
-			"--cluster-id", "1b5f548d-630b-4a95-90e2-9157b5a560ba",
-			"--auth-token", "dea56520895f222a8575f58270f08df46a8249d7180da6b5b747dd9cd2d62261e704a3c1c9b21abfdb0094eb02e2e5401776634e64f6aca480549c423fbca936",
-		)
-		output, err := cmd.CombinedOutput()
-		log.Printf("End SSH")
-		if err != nil {
-			log.Printf("Error during SSH: %v", err)
-			//return nil,err
-		}
-		log.Printf(" %s", output)
+
+	// Take the parameter
+	nodegroupId := req.Id
+	log.Printf("l'id è %s e %s", nodegroupId, req.Id)
+	url := fmt.Sprintf("http://localhost:9009/nodegroup/scaleup?id=%s", nodegroupId)
+
+	// Send a GET request to the nodegroup controller
+	log.Printf("l'url è %s", url)
+	reply, err := http.Get(url) // TODO create a parameter
+	if err != nil {
+		log.Printf("Error during HTTP request: %v", err)
+		//return nil,err // TODO probably there is a specific error
 	}
-	log.Printf("Increased size of nodegroup %s", req.Id)
+	defer reply.Body.Close()
+
+	// Check the response status code
+	if reply.StatusCode == http.StatusNoContent {
+		return &protos.NodeGroupIncreaseSizeResponse{}, nil //TODO probably there is a specific error
+	} else if reply.StatusCode != http.StatusOK {
+		log.Printf("status code è %d", reply.StatusCode)
+		log.Printf("errore: server ha risposto con status %d", reply.StatusCode)
+		return nil, nil
+	}
 	return &protos.NodeGroupIncreaseSizeResponse{}, nil
 }
 
@@ -231,30 +306,55 @@ func (c *cloudProviderServer) NodeGroupIncreaseSize(ctx context.Context, req *pr
 // doesn't belong to this node group. This function should wait until node group size is updated.
 func (c *cloudProviderServer) NodeGroupDeleteNodes(ctx context.Context, req *protos.NodeGroupDeleteNodesRequest) (*protos.NodeGroupDeleteNodesResponse, error) {
 	//here TODO the real computations
-	if test == 2 {
-		test = 1
-		log.Printf("DECREASE SIZE of %s NODEGROUP, DELETING NODE %s", req.Id, req.Nodes[0].Name)
-		log.Printf("list size is %d", len(req.Nodes))
-		for i, node := range req.Nodes {
-			log.Printf("Node %d: %s", i, node.Name)
-		}
-		log.Printf("Node fine loop")
-		cmd := exec.Command(
-			"ssh",
-			"-J", "bastion@ssh.crownlabs.polito.it",
-			"crownlabs@10.97.97.14",
-			"liqoctl", "unpeer", "remoto", "--skip-confirm",
-		)
-		output, err := cmd.CombinedOutput()
-		log.Printf("Fine SSH")
-		if err != nil {
-			log.Printf("Error during SSH: %v", err)
-			//return nil,err
-		}
-		log.Printf(" %s", output)
+
+	// Take the parameter
+	nodeId := req.Nodes[0].ProviderID
+	nodegroupId := req.Id
+	log.Printf("l'id è %s e %s", nodegroupId, req.Id)
+	url := fmt.Sprintf("http://localhost:9009/nodegroup/scaledown?id=%s&nodegroupid=%s", nodeId, nodegroupId)
+
+	// Send a GET request to the nodegroup controller
+	log.Printf("l'url è %s", url)
+	reply, err := http.Get(url) // TODO create a parameter
+	if err != nil {
+		log.Printf("Error during HTTP request: %v", err)
+		//return nil,err // TODO probably there is a specific error
+	}
+	defer reply.Body.Close()
+
+	// Check the response status code
+	if reply.StatusCode == http.StatusNoContent {
+		return &protos.NodeGroupDeleteNodesResponse{}, nil //TODO probably there is a specific error
+	} else if reply.StatusCode != http.StatusOK {
+		log.Printf("status code è %d", reply.StatusCode)
+		log.Printf("errore: server ha risposto con status %d", reply.StatusCode)
+		return nil, nil
 	}
 	return &protos.NodeGroupDeleteNodesResponse{}, nil
 }
+
+/*if test == 2 {
+	test = 1
+	log.Printf("DECREASE SIZE of %s NODEGROUP, DELETING NODE %s", req.Id, req.Nodes[0].Name)
+	log.Printf("list size is %d", len(req.Nodes))
+	for i, node := range req.Nodes {
+		log.Printf("Node %d: %s", i, node.Name)
+	}
+	log.Printf("Node fine loop")
+	cmd := exec.Command(
+		"ssh",
+		"-J", "bastion@ssh.crownlabs.polito.it",
+		"crownlabs@10.97.97.14",
+		"liqoctl", "unpeer", "remoto", "--skip-confirm",
+	)
+	output, err := cmd.CombinedOutput()
+	log.Printf("Fine SSH")
+	if err != nil {
+		log.Printf("Error during SSH: %v", err)
+		//return nil,err
+	}
+	log.Printf(" %s", output)
+}*/
 
 // NodeGroupDecreaseTargetSize decreases the target size of the node group. This function
 // doesn't permit to delete any existing node and can be used only to reduce the request
@@ -270,7 +370,50 @@ func (c *cloudProviderServer) NodeGroupDecreaseTargetSize(ctx context.Context, r
 // NodeGroupNodes returns a list of all nodes that belong to this node group.
 func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.NodeGroupNodesRequest) (*protos.NodeGroupNodesResponse, error) {
 	//here TODO the real computations
-	log.Printf("INFO ABOUT NODES OF NODEGROUPS, per nodegropu %s", req.Id)
+
+	// Take the parameter
+	nodegroupId := req.Id
+	url := fmt.Sprintf("http://localhost:9009/nodegroup/nodes?id=%s", nodegroupId)
+
+	// Send a GET request to the nodegroup controller
+	reply, err := http.Get(url) // TODO create a parameter
+	if err != nil {
+		log.Printf("Error during HTTP request: %v", err)
+		//return nil,err // TODO probably there is a specific error
+	}
+	defer reply.Body.Close()
+
+	// Check the response status code
+	if reply.StatusCode == http.StatusNoContent {
+		return &protos.NodeGroupNodesResponse{}, nil //TODO probably there is a specific error
+	} else if reply.StatusCode != http.StatusOK {
+		log.Printf("errore: server ha risposto con status %d", reply.StatusCode)
+		return nil, nil
+	}
+
+	// Decode the JSON response
+	var nodeList []Node
+	if err := json.NewDecoder(reply.Body).Decode(&nodeList); err != nil {
+		return nil, fmt.Errorf("errore nel decoding JSON: %v", err)
+	}
+
+	// Convert the response to the protos format
+	protoNodes := make([]*protos.Instance, len(nodeList))
+	for i, node := range nodeList {
+		protoNodes[i] = &protos.Instance{
+			Id: node.Id,
+			Status: &protos.InstanceStatus{
+				InstanceState: 1,
+			},
+		}
+	}
+
+	return &protos.NodeGroupNodesResponse{
+		Instances: protoNodes,
+	}, nil
+}
+
+/*log.Printf("INFO ABOUT NODES OF NODEGROUPS, per nodegropu %s", req.Id)
 	if test == 1 {
 		log.Printf("return sud-> 1 node")
 		return &protos.NodeGroupNodesResponse{
@@ -302,7 +445,7 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 			},
 		}, nil
 	}
-}
+}*/
 
 // NodeGroupTemplateNodeInfo returns a structure of an empty (as if just started) node,
 // with all of the labels, capacity and allocatable information. This will be used in
