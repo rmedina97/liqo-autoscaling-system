@@ -33,7 +33,7 @@ type Node struct {
 	Id          string `json:"id"`
 	NodegroupId string `json:"nodegroupId"`
 	//TODO other info
-	InstanceStatus InstanceStatus
+	InstanceStatus InstanceStatus `json:"--"`
 }
 
 type Nodegroup struct {
@@ -94,6 +94,7 @@ func getNodegroupForNode(w http.ResponseWriter, r *http.Request) {
 // getCurrentSize get the current size of a nodegroup
 func getCurrentSize(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
+	log.Printf("id è %s", queryParams.Get("id"))
 	nodegroup, exist := mapNodegroup[queryParams.Get("id")]
 	if !exist { //TODO error node id doesn't exist
 		writeGetResponse(w, http.StatusNotFound, nil, "Nodegroup not found")
@@ -106,6 +107,9 @@ func getCurrentSize(w http.ResponseWriter, r *http.Request) {
 
 // getNodegroupNodes get all the nodes of a nodegroup
 func getNodegroupNodes(w http.ResponseWriter, r *http.Request) {
+
+	// Clear the list before adding the new nodes
+	nodeList = nodeList[:0]
 	nodegroup, exist := mapNodegroup[r.URL.Query().Get("id")]
 	if !exist {
 		writeGetResponse(w, http.StatusNotFound, nil, "Nodegroup not found")
@@ -185,6 +189,7 @@ func scaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Fine SSH")*/
 	mapNode["cinque"] = Node{Id: "cinque", NodegroupId: "secondo nodegroup"}
 	nodegroup := mapNodegroup[nodegroupId]
+	nodegroup.CurrentSize++
 	nodegroup.Nodes = append(nodegroup.Nodes, "cinque")
 	mapNodegroup[nodegroupId] = nodegroup
 	writeGetResponse(w, http.StatusOK, nil, "")
@@ -193,8 +198,8 @@ func scaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
 // scaleDownNodegroup scale down the nodegroup killing a certain node
 func scaleDownNodegroup(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
-	nodegroupId := queryParams.Get("id")
-	nodeId := queryParams.Get("nodeId")
+	nodegroupId := queryParams.Get("nodegroupid")
+	nodeId := queryParams.Get("id")
 	nodegroup := mapNodegroup[nodegroupId]
 	for i, node := range nodegroup.Nodes {
 		if node == nodeId { // Remove the node from the list
@@ -202,6 +207,7 @@ func scaleDownNodegroup(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+	nodegroup.CurrentSize--
 	mapNodegroup[nodegroupId] = nodegroup
 	delete(mapNode, nodeId)
 	writeGetResponse(w, http.StatusNoContent, nil, "")
@@ -211,6 +217,7 @@ func scaleDownNodegroup(w http.ResponseWriter, r *http.Request) {
 
 // TODO transfer case code inside functions
 func handleConnection(w http.ResponseWriter, r *http.Request) {
+	log.Printf("il path è %s", r.URL.Path)
 	switch r.URL.Path {
 	case "/nodegroup":
 
@@ -330,12 +337,12 @@ func listNodeOfNodegroup() {
 func main() {
 
 	//go startPeriodicFunction()
-	mapNodegroup["primo nodegroup"] = Nodegroup{Id: "primo nodegroup", MaxSize: 3, MinSize: 1, CurrentSize: 2, Nodes: []string{"uno", "tre"}}
-	mapNodegroup["secondo nodegroup"] = Nodegroup{Id: "secondo nodegroup", MaxSize: 3, MinSize: 1, CurrentSize: 2, Nodes: []string{"quattro", "due"}}
-	mapNode["uno"] = Node{Id: "uno", NodegroupId: "primo nodegroup"}
-	mapNode["due"] = Node{Id: "due", NodegroupId: "secondo nodegroup"}
-	mapNode["tre"] = Node{Id: "tre", NodegroupId: "primo nodegroup"}
-	mapNode["quattro"] = Node{Id: "quattro", NodegroupId: "secondo nodegroup"}
+	mapNodegroup["primonodegroup"] = Nodegroup{Id: "primonodegroup", MaxSize: 3, MinSize: 1, CurrentSize: 2, Nodes: []string{"uno", "tre"}}
+	mapNodegroup["secondonodegroup"] = Nodegroup{Id: "secondonodegroup", MaxSize: 3, MinSize: 1, CurrentSize: 2, Nodes: []string{"quattro", "due"}}
+	mapNode["uno"] = Node{Id: "uno", NodegroupId: "primonodegroup"}
+	mapNode["due"] = Node{Id: "due", NodegroupId: "secondonodegroup"}
+	mapNode["tre"] = Node{Id: "tre", NodegroupId: "primonodegroup"}
+	mapNode["quattro"] = Node{Id: "quattro", NodegroupId: "secondonodegroup"}
 	gpuLabelsList = append(gpuLabelsList, "first type")
 	gpuLabelsList = append(gpuLabelsList, "second type")
 
