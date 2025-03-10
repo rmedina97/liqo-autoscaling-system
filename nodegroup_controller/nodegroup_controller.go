@@ -12,6 +12,10 @@ var nodegroupIdsCached = false
 var kubeconfig string
 var gpuLabel string = "GPU node"
 
+var keyPem string = "C:/Users/ricca/Desktop/key.pem"
+
+var certPem string = "C:/Users/ricca/Desktop/cert.pem"
+
 // List of GPU labels
 var gpuLabelsList []string = make([]string, 0, 5)
 
@@ -346,10 +350,18 @@ func main() {
 	gpuLabelsList = append(gpuLabelsList, "first type")
 	gpuLabelsList = append(gpuLabelsList, "second type")
 
-	http.HandleFunc("/", handleConnection)
-
-	err := http.ListenAndServe(":9009", nil)
+	//http.HandleFunc("/", handleConnection)
+	mux := http.NewServeMux()
+	//TODO use different handler for different routes
+	mux.HandleFunc("/", handleConnection)
+	err := http.ListenAndServeTLS(":9009", certPem, keyPem, mux)
 	if err != nil {
 		log.Fatalf("failed to start server, %v ", err)
 	}
 }
+
+/*err := http.ListenAndServe(":9009", nil)
+	if err != nil {
+		log.Fatalf("failed to start server, %v ", err)
+	}
+}*/
