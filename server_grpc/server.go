@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net"
+	"os"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -44,21 +47,48 @@ type GPUTypes struct {
 	Specs string
 }
 
-// hardcoded flag for increase size
-var test int = 1
-
 // HERE END HARDCODED COMPONENTS---------------// HERE END HARDCODED COMPONENTS	---------------// HERE END HARDCODED COMPONENTS
 
 // NodeGroups returns all node groups configured for this cloud provider.
 func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGroupsRequest) (*protos.NodeGroupsResponse, error) {
 
+	certPool := x509.NewCertPool()
+	certData, err := os.ReadFile("C:/Users/ricca/Desktop/server_grpc_1.30/gRPC_server/nodegroup_controller/cert.pem")
+
+	if err != nil {
+		return nil, fmt.Errorf("errore nella lettura del certificato: %v", err)
+	} else {
+		log.Printf("certificato letto")
+	}
+
+	if !certPool.AppendCertsFromPEM(certData) {
+		return nil, fmt.Errorf("impossibile aggiungere il certificato")
+	} else {
+		log.Printf("certificato aggiunto")
+	}
+
 	// Send a GET request to the nodegroup controller
-	reply, err := http.Get("http://localhost:9009/nodegroup") // TODO create a parameter
+	// TODO Search if someone still uses 509 cert without san, if yes use VerifyPeerCertificate to custom accept them
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig:   &tls.Config{RootCAs: certPool},
+			ForceAttemptHTTP2: true,
+		},
+	}
+
+	reply, err := client.Get("https://localhost:9009/nodegroup") // TODO create a parameter
 	if err != nil {
 		log.Printf("Error during HTTP request: %v", err)
 		//return nil,err // TODO probably there is a specific error
 	}
 	defer reply.Body.Close()
+
+	/*reply, err := http.Get("https://localhost:9009/nodegroup") // TODO create a parameter
+	if err != nil {
+		log.Printf("Error during HTTP request: %v", err)
+		//return nil,err // TODO probably there is a specific error
+	}
+	defer reply.Body.Close()*/
 
 	// Check the response status code
 	if reply.StatusCode == http.StatusNoContent {
@@ -100,7 +130,7 @@ func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.
 
 	// Take the parameter
 	nodeId := req.Node.ProviderID
-	url := fmt.Sprintf("http://localhost:9009/nodegroup/ownership?id=%s", nodeId)
+	url := fmt.Sprintf("https://localhost:9009/nodegroup/ownership?id=%s", nodeId)
 	// Send a GET request to the nodegroup controller
 	reply, err := http.Get(url) // TODO create a better parameter, maybe using something more complex like DefaultClient
 	if err != nil {
@@ -157,7 +187,7 @@ func (c *cloudProviderServer) GPULabel(ctx context.Context, req *protos.GPULabel
 	//here TODO the real computations
 
 	// Send a GET request to the nodegroup controller
-	reply, err := http.Get("http://localhost:9009/gpu/label") // TODO create a parameter
+	reply, err := http.Get("https://localhost:9009/gpu/label") // TODO create a parameter
 	if err != nil {
 		log.Printf("Error during HTTP request: %v", err)
 		//return nil,err // TODO probably there is a specific error
@@ -188,7 +218,7 @@ func (c *cloudProviderServer) GetAvailableGPUTypes(ctx context.Context, req *pro
 	//here TODO the real computations
 
 	// Send a GET request to the nodegroup controller
-	reply, err := http.Get("http://localhost:9009/gpu/types") // TODO create a parameter
+	reply, err := http.Get("https://localhost:9009/gpu/types") // TODO create a parameter
 	if err != nil {
 		log.Printf("Error during HTTP request: %v", err)
 		//return nil,err // TODO probably there is a specific error
@@ -241,7 +271,7 @@ func (c *cloudProviderServer) NodeGroupTargetSize(ctx context.Context, req *prot
 
 	// Take the parameter
 	nodeId := req.Id
-	url := fmt.Sprintf("http://localhost:9009/nodegroup/current-size?id=%s", nodeId)
+	url := fmt.Sprintf("https://localhost:9009/nodegroup/current-size?id=%s", nodeId)
 
 	// Send a GET request to the nodegroup controller
 	reply, err := http.Get(url) // TODO create a parameter
@@ -279,7 +309,7 @@ func (c *cloudProviderServer) NodeGroupIncreaseSize(ctx context.Context, req *pr
 	// Take the parameter
 	nodegroupId := req.Id
 	log.Printf("l'id è %s e %s", nodegroupId, req.Id)
-	url := fmt.Sprintf("http://localhost:9009/nodegroup/scaleup?id=%s", nodegroupId)
+	url := fmt.Sprintf("https://localhost:9009/nodegroup/scaleup?id=%s", nodegroupId)
 
 	// Send a GET request to the nodegroup controller
 	log.Printf("l'url è %s", url)
@@ -311,7 +341,7 @@ func (c *cloudProviderServer) NodeGroupDeleteNodes(ctx context.Context, req *pro
 	nodeId := req.Nodes[0].ProviderID
 	nodegroupId := req.Id
 	log.Printf("l'id è %s e %s", nodegroupId, req.Id)
-	url := fmt.Sprintf("http://localhost:9009/nodegroup/scaledown?id=%s&nodegroupid=%s", nodeId, nodegroupId)
+	url := fmt.Sprintf("https://localhost:9009/nodegroup/scaledown?id=%s&nodegroupid=%s", nodeId, nodegroupId)
 
 	// Send a GET request to the nodegroup controller
 	log.Printf("l'url è %s", url)
@@ -373,7 +403,7 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 
 	// Take the parameter
 	nodegroupId := req.Id
-	url := fmt.Sprintf("http://localhost:9009/nodegroup/nodes?id=%s", nodegroupId)
+	url := fmt.Sprintf("https://localhost:9009/nodegroup/nodes?id=%s", nodegroupId)
 
 	// Send a GET request to the nodegroup controller
 	reply, err := http.Get(url) // TODO create a parameter

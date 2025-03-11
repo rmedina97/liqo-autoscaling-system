@@ -12,9 +12,9 @@ var nodegroupIdsCached = false
 var kubeconfig string
 var gpuLabel string = "GPU node"
 
-var keyPem string = "C:/Users/ricca/Desktop/key.pem"
+var keyPem string = "C:/Users/ricca/Desktop/server_grpc_1.30/gRPC_server/nodegroup_controller/key.pem"
 
-var certPem string = "C:/Users/ricca/Desktop/cert.pem"
+var certPem string = "C:/Users/ricca/Desktop/server_grpc_1.30/gRPC_server/nodegroup_controller/cert.pem"
 
 // List of GPU labels
 var gpuLabelsList []string = make([]string, 0, 5)
