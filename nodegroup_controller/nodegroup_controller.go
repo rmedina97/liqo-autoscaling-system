@@ -66,15 +66,15 @@ type NodeMinInfo struct {
 }
 
 // Node list
-var nodeMinInfoList []NodeMinInfo = make([]NodeMinInfo, 0, 5)
+var nodeMinInfoList []NodeMinInfo = make([]NodeMinInfo, 0, 20)
 
 // HERE END CUSTOM OBJECTS TO ADHERE GRPC TYPES
 
 // Nodegroup list with all fields
-var nodegroupList []Nodegroup = make([]Nodegroup, 0, 5)
+var nodegroupList []Nodegroup = make([]Nodegroup, 0, 6)
 
 // Node list
-var nodeList []Node = make([]Node, 0, 5) // TODO what starting capacity is the best?
+//var nodeList []Node = make([]Node, 0, 20)
 
 // List of function inside the handle connection -------------------------------------------------------
 

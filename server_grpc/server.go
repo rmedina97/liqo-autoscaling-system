@@ -337,7 +337,6 @@ func (c *cloudProviderServer) NodeGroupIncreaseSize(ctx context.Context, req *pr
 	url := fmt.Sprintf("https://localhost:9009/nodegroup/scaleup?id=%s", nodegroupId)
 
 	// Send a GET request to the nodegroup controller
-	log.Printf("l'url è %s", url)
 	reply, err := client.Get(url) // TODO create a parameter
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute get query: %v", err)
@@ -372,7 +371,6 @@ func (c *cloudProviderServer) NodeGroupDeleteNodes(ctx context.Context, req *pro
 	url := fmt.Sprintf("https://localhost:9009/nodegroup/scaledown?id=%s&nodegroupid=%s", nodeId, nodegroupId)
 
 	// Send a GET request to the nodegroup controller
-	log.Printf("l'url è %s", url)
 	reply, err := client.Get(url) // TODO create a parameter
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute get query: %v", err)
