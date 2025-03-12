@@ -71,7 +71,7 @@ var nodeMinInfoList []NodeMinInfo = make([]NodeMinInfo, 0, 20)
 // HERE END CUSTOM OBJECTS TO ADHERE GRPC TYPES
 
 // Nodegroup list with all fields
-var nodegroupList []Nodegroup = make([]Nodegroup, 0, 6)
+//var nodegroupList []Nodegroup = make([]Nodegroup, 0, 6)
 
 // Node list
 //var nodeList []Node = make([]Node, 0, 20)
@@ -80,16 +80,18 @@ var nodegroupList []Nodegroup = make([]Nodegroup, 0, 6)
 
 // getAllNodegroups get all the nodegroups
 func getAllNodegroups(w http.ResponseWriter) {
+
 	// No existing Nodegroups
 	if len(mapNodegroup) == 0 {
 		writeGetResponse(w, http.StatusNotFound, nil, "Nodegroups not found")
 		w.WriteHeader(http.StatusNoContent)
 	} else {
 		// Check if it is cached
+		// TODO add a log, cache flag is necessary when will exist the cr and there will be a function to search if cr already exist
 		if !nodegroupIdsCached {
 			for _, nodegroup := range mapNodegroup {
+
 				nodegroupMinInfo := NodegroupMinInfo{Id: nodegroup.Id, MaxSize: nodegroup.MaxSize, MinSize: nodegroup.MinSize}
-				//nodegroupList = append(nodegroupList, nodegroup)
 				nodegroupListMinInfo = append(nodegroupListMinInfo, nodegroupMinInfo)
 			}
 			nodegroupIdsCached = true
@@ -175,6 +177,7 @@ func createNodegroup(w http.ResponseWriter, r *http.Request) {
 	}
 	mapNodegroup[newNodegroup.Id] = newNodegroup
 	// TODO check if we need a lock on nodegroupiscached for the get all nodegroups
+	// Update the list of nodegroups
 	newNodegroupMinInfo := NodegroupMinInfo{Id: newNodegroup.Id, MaxSize: newNodegroup.MaxSize, MinSize: newNodegroup.MinSize}
 	nodegroupListMinInfo = append(nodegroupListMinInfo, newNodegroupMinInfo)
 	//nodegroupList = append(nodegroupList, newNodegroup)
@@ -191,14 +194,14 @@ func deleteNodegroup(w http.ResponseWriter, r *http.Request) {
 	}
 	delete(mapNodegroup, nodegroupId)
 	// Remove the nodegroup from the list
-	for i, nodegroup := range nodegroupList {
+	for i, nodegroup := range nodegroupListMinInfo {
 		if nodegroup.Id == nodegroupId {
-			nodegroupList = append(nodegroupList[:i], nodegroupList[i+1:]...)
+			nodegroupListMinInfo = append(nodegroupListMinInfo[:i], nodegroupListMinInfo[i+1:]...)
 			break
 		}
 	}
 	// Update the cache flag if the list is empty
-	if len(nodegroupList) == 0 {
+	if len(nodegroupListMinInfo) == 0 {
 		nodegroupIdsCached = false
 	}
 	writeGetResponse(w, http.StatusNoContent, nil, "")
