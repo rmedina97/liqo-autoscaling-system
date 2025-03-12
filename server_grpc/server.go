@@ -33,6 +33,11 @@ type Node struct {
 	NodegroupId string `json:"nodegroupId"`
 }
 
+type GPUTypes struct {
+	Name  string
+	Specs string
+}
+
 // HERE END PERSONAL STRUCTS---------------// HERE END PERSONAL STRUCTS	---------------// HERE END PERSONAL STRUCTS
 
 // protos->package with the files definition (_grpc.pb.go and pb.go) born from the proto file
@@ -40,40 +45,41 @@ type cloudProviderServer struct {
 	protos.UnimplementedCloudProviderServer
 }
 
-// HERE START HARDCODED COMPONENTS---------------// HERE START HARDCODED COMPONENTS	---------------// HERE START HARDCODED COMPONENTS
-// Hardcoded invented type
-type GPUTypes struct {
-	Name  string
-	Specs string
-}
-
-// HERE END HARDCODED COMPONENTS---------------// HERE END HARDCODED COMPONENTS	---------------// HERE END HARDCODED COMPONENTS
-
-// NodeGroups returns all node groups configured for this cloud provider.
-func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGroupsRequest) (*protos.NodeGroupsResponse, error) {
-
+// HERE START MY FUNCTIONS---------------// HERE START MY FUNCTIONS	---------------// HERE START MY FUNCTIONS
+// Create a new client
+// TODO Search if someone still uses 509 cert without san, if yes use VerifyPeerCertificate to custom accept them
+func newClient() (*http.Client, error) {
 	certPool := x509.NewCertPool()
 	certData, err := os.ReadFile("C:/Users/ricca/Desktop/server_grpc_1.30/gRPC_server/nodegroup_controller/cert.pem")
 
 	if err != nil {
-		return nil, fmt.Errorf("errore nella lettura del certificato: %v", err)
-	} else {
-		log.Printf("certificato letto")
+		return nil, fmt.Errorf("error reading certificate: %v", err)
 	}
 
 	if !certPool.AppendCertsFromPEM(certData) {
-		return nil, fmt.Errorf("impossibile aggiungere il certificato")
-	} else {
-		log.Printf("certificato aggiunto")
+		return nil, fmt.Errorf("failed to append certificate")
 	}
 
-	// Send a GET request to the nodegroup controller
-	// TODO Search if someone still uses 509 cert without san, if yes use VerifyPeerCertificate to custom accept them
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig:   &tls.Config{RootCAs: certPool},
 			ForceAttemptHTTP2: true,
 		},
+	}
+	return client, nil
+
+}
+
+// HERE END MY FUNCTIONS---------------// HERE END MY FUNCTIONS	---------------// HERE END MY FUNCTIONS
+
+// NodeGroups returns all node groups configured for this cloud provider.
+func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGroupsRequest) (*protos.NodeGroupsResponse, error) {
+
+	// Send a GET request to the nodegroup controller
+	client, err := newClient()
+	if err != nil {
+		log.Printf("Error during creation http client: %v", err)
+		//return nil, err	// TODO probably there is a specific error
 	}
 
 	reply, err := client.Get("https://localhost:9009/nodegroup") // TODO create a parameter
@@ -82,13 +88,6 @@ func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGr
 		//return nil,err // TODO probably there is a specific error
 	}
 	defer reply.Body.Close()
-
-	/*reply, err := http.Get("https://localhost:9009/nodegroup") // TODO create a parameter
-	if err != nil {
-		log.Printf("Error during HTTP request: %v", err)
-		//return nil,err // TODO probably there is a specific error
-	}
-	defer reply.Body.Close()*/
 
 	// Check the response status code
 	if reply.StatusCode == http.StatusNoContent {
@@ -127,12 +126,16 @@ func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGr
 func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.NodeGroupForNodeRequest) (*protos.NodeGroupForNodeResponse, error) {
 
 	//here TODO the real computations
-
+	client, err := newClient()
+	if err != nil {
+		log.Printf("Error during creation http client: %v", err)
+		//return nil, err	// TODO probably there is a specific error
+	}
 	// Take the parameter
 	nodeId := req.Node.ProviderID
 	url := fmt.Sprintf("https://localhost:9009/nodegroup/ownership?id=%s", nodeId)
 	// Send a GET request to the nodegroup controller
-	reply, err := http.Get(url) // TODO create a better parameter, maybe using something more complex like DefaultClient
+	reply, err := client.Get(url) // TODO create a better parameter, maybe using something more complex like DefaultClient
 	if err != nil {
 		log.Printf("Error during HTTP request: %v", err)
 		//return nil,err // TODO probably there is a specific error
@@ -185,9 +188,14 @@ func (c *cloudProviderServer) PricingPodPrice(ctx context.Context, req *protos.P
 // GPULabel returns the label added to nodes with GPU resource.
 func (c *cloudProviderServer) GPULabel(ctx context.Context, req *protos.GPULabelRequest) (*protos.GPULabelResponse, error) {
 	//here TODO the real computations
+	client, err := newClient()
+	if err != nil {
+		log.Printf("Error during creation http client: %v", err)
+		//return nil, err	// TODO probably there is a specific error
+	}
 
 	// Send a GET request to the nodegroup controller
-	reply, err := http.Get("https://localhost:9009/gpu/label") // TODO create a parameter
+	reply, err := client.Get("https://localhost:9009/gpu/label") // TODO create a parameter
 	if err != nil {
 		log.Printf("Error during HTTP request: %v", err)
 		//return nil,err // TODO probably there is a specific error
@@ -216,9 +224,13 @@ func (c *cloudProviderServer) GPULabel(ctx context.Context, req *protos.GPULabel
 // GetAvailableGPUTypes return all available GPU types cloud provider supports.
 func (c *cloudProviderServer) GetAvailableGPUTypes(ctx context.Context, req *protos.GetAvailableGPUTypesRequest) (*protos.GetAvailableGPUTypesResponse, error) {
 	//here TODO the real computations
-
+	client, err := newClient()
+	if err != nil {
+		log.Printf("Error during creation http client: %v", err)
+		//return nil, err	// TODO probably there is a specific error
+	}
 	// Send a GET request to the nodegroup controller
-	reply, err := http.Get("https://localhost:9009/gpu/types") // TODO create a parameter
+	reply, err := client.Get("https://localhost:9009/gpu/types") // TODO create a parameter
 	if err != nil {
 		log.Printf("Error during HTTP request: %v", err)
 		//return nil,err // TODO probably there is a specific error
@@ -268,13 +280,17 @@ func (c *cloudProviderServer) Refresh(ctx context.Context, req *protos.RefreshRe
 // registration or removed nodes are deleted completely).
 func (c *cloudProviderServer) NodeGroupTargetSize(ctx context.Context, req *protos.NodeGroupTargetSizeRequest) (*protos.NodeGroupTargetSizeResponse, error) {
 	//here TODO the real computations
-
+	client, err := newClient()
+	if err != nil {
+		log.Printf("Error during creation http client: %v", err)
+		//return nil, err	// TODO probably there is a specific error
+	}
 	// Take the parameter
 	nodeId := req.Id
 	url := fmt.Sprintf("https://localhost:9009/nodegroup/current-size?id=%s", nodeId)
 
 	// Send a GET request to the nodegroup controller
-	reply, err := http.Get(url) // TODO create a parameter
+	reply, err := client.Get(url) // TODO create a parameter
 	if err != nil {
 		log.Printf("Error during HTTP request: %v", err)
 		//return nil,err // TODO probably there is a specific error
@@ -306,6 +322,11 @@ func (c *cloudProviderServer) NodeGroupTargetSize(ctx context.Context, req *prot
 func (c *cloudProviderServer) NodeGroupIncreaseSize(ctx context.Context, req *protos.NodeGroupIncreaseSizeRequest) (*protos.NodeGroupIncreaseSizeResponse, error) {
 	//here TODO the real computations
 
+	client, err := newClient()
+	if err != nil {
+		log.Printf("Error during creation http client: %v", err)
+		//return nil, err	// TODO probably there is a specific error
+	}
 	// Take the parameter
 	nodegroupId := req.Id
 	log.Printf("l'id è %s e %s", nodegroupId, req.Id)
@@ -313,7 +334,7 @@ func (c *cloudProviderServer) NodeGroupIncreaseSize(ctx context.Context, req *pr
 
 	// Send a GET request to the nodegroup controller
 	log.Printf("l'url è %s", url)
-	reply, err := http.Get(url) // TODO create a parameter
+	reply, err := client.Get(url) // TODO create a parameter
 	if err != nil {
 		log.Printf("Error during HTTP request: %v", err)
 		//return nil,err // TODO probably there is a specific error
@@ -337,6 +358,11 @@ func (c *cloudProviderServer) NodeGroupIncreaseSize(ctx context.Context, req *pr
 func (c *cloudProviderServer) NodeGroupDeleteNodes(ctx context.Context, req *protos.NodeGroupDeleteNodesRequest) (*protos.NodeGroupDeleteNodesResponse, error) {
 	//here TODO the real computations
 
+	client, err := newClient()
+	if err != nil {
+		log.Printf("Error during creation http client: %v", err)
+		//return nil, err	// TODO probably there is a specific error
+	}
 	// Take the parameter
 	nodeId := req.Nodes[0].ProviderID
 	nodegroupId := req.Id
@@ -345,7 +371,7 @@ func (c *cloudProviderServer) NodeGroupDeleteNodes(ctx context.Context, req *pro
 
 	// Send a GET request to the nodegroup controller
 	log.Printf("l'url è %s", url)
-	reply, err := http.Get(url) // TODO create a parameter
+	reply, err := client.Get(url) // TODO create a parameter
 	if err != nil {
 		log.Printf("Error during HTTP request: %v", err)
 		//return nil,err // TODO probably there is a specific error
@@ -401,12 +427,17 @@ func (c *cloudProviderServer) NodeGroupDecreaseTargetSize(ctx context.Context, r
 func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.NodeGroupNodesRequest) (*protos.NodeGroupNodesResponse, error) {
 	//here TODO the real computations
 
+	client, err := newClient()
+	if err != nil {
+		log.Printf("Error during creation http client: %v", err)
+		//return nil, err	// TODO probably there is a specific error
+	}
 	// Take the parameter
 	nodegroupId := req.Id
 	url := fmt.Sprintf("https://localhost:9009/nodegroup/nodes?id=%s", nodegroupId)
 
 	// Send a GET request to the nodegroup controller
-	reply, err := http.Get(url) // TODO create a parameter
+	reply, err := client.Get(url) // TODO create a parameter
 	if err != nil {
 		log.Printf("Error during HTTP request: %v", err)
 		//return nil,err // TODO probably there is a specific error
