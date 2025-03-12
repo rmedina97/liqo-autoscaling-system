@@ -29,8 +29,17 @@ type Nodegroup struct {
 }
 
 type Node struct {
-	Id          string `json:"id"`
-	NodegroupId string `json:"nodegroupId"`
+	Id string `json:"id"`
+}
+
+type InstanceStatus struct {
+	InstanceState     int32 //from zero to three
+	InstanceErrorInfo string
+}
+
+type NodeMinInfo struct {
+	Id             string         `json:"id"`
+	InstanceStatus InstanceStatus `json:"--"`
 }
 
 type GPUTypes struct {
@@ -78,35 +87,31 @@ func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGr
 	// Send a GET request to the nodegroup controller
 	client, err := newClient()
 	if err != nil {
-		log.Printf("Error during creation http client: %v", err)
-		//return nil, err	// TODO probably there is a specific error
+		return nil, fmt.Errorf("failed to create a client: %v", err)
 	}
 
 	reply, err := client.Get("https://localhost:9009/nodegroup") // TODO create a parameter
 	if err != nil {
-		log.Printf("Error during HTTP request: %v", err)
-		//return nil,err // TODO probably there is a specific error
+		return nil, fmt.Errorf("failed to get nodegroup: %v", err)
 	}
 	defer reply.Body.Close()
 
 	// Check the response status code
-	if reply.StatusCode == http.StatusNoContent {
-		return &protos.NodeGroupsResponse{}, nil //TODO probably there is a specific error
+	if reply.StatusCode == http.StatusNotFound {
+		return &protos.NodeGroupsResponse{}, nil // No error, but no data
 	} else if reply.StatusCode != http.StatusOK {
-		log.Printf("errore: server ha risposto con status %d", reply.StatusCode)
-		return nil, nil
+		return nil, fmt.Errorf("server responded with status %d", reply.StatusCode)
 	}
 
 	// Decode the JSON response
 	var nodeGroups []Nodegroup
 	if err := json.NewDecoder(reply.Body).Decode(&nodeGroups); err != nil {
-		return nil, fmt.Errorf("errore nel decoding JSON: %v", err)
+		return nil, fmt.Errorf("error decoding JSON: %v", err)
 	}
 
 	// Convert the response to the protos format
 	protoNodeGroups := make([]*protos.NodeGroup, len(nodeGroups))
 	for i, nodegroup := range nodeGroups {
-		log.Printf("iterazione n %d, nodegroup %v", i, nodegroup)
 		protoNodeGroups[i] = &protos.NodeGroup{
 			Id:      nodegroup.Id,
 			MinSize: nodegroup.MinSize,
@@ -128,32 +133,31 @@ func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.
 	//here TODO the real computations
 	client, err := newClient()
 	if err != nil {
-		log.Printf("Error during creation http client: %v", err)
-		//return nil, err	// TODO probably there is a specific error
+		return nil, fmt.Errorf("failed to create a client: %v", err)
 	}
+
 	// Take the parameter
 	nodeId := req.Node.ProviderID
 	url := fmt.Sprintf("https://localhost:9009/nodegroup/ownership?id=%s", nodeId)
+
 	// Send a GET request to the nodegroup controller
 	reply, err := client.Get(url) // TODO create a better parameter, maybe using something more complex like DefaultClient
 	if err != nil {
-		log.Printf("Error during HTTP request: %v", err)
-		//return nil,err // TODO probably there is a specific error
+		return nil, fmt.Errorf("failed to execute get query: %v", err)
 	}
 	defer reply.Body.Close()
 
 	// Check the response status code
-	if reply.StatusCode == http.StatusNoContent {
+	if reply.StatusCode == http.StatusNotFound {
 		return &protos.NodeGroupForNodeResponse{}, nil //TODO probably there is a specific error
 	} else if reply.StatusCode != http.StatusOK {
-		log.Printf("errore: server ha risposto con status %d", reply.StatusCode)
-		return nil, nil
+		return nil, fmt.Errorf("server responded with status %d", reply.StatusCode)
 	}
 
 	// Decode the JSON response
 	var nodeGroup Nodegroup
 	if err := json.NewDecoder(reply.Body).Decode(&nodeGroup); err != nil {
-		return nil, fmt.Errorf("errore nel decoding JSON: %v", err)
+		return nil, fmt.Errorf("error decoding JSON: %v", err)
 	}
 
 	// Convert the response to the protos format
@@ -187,33 +191,32 @@ func (c *cloudProviderServer) PricingPodPrice(ctx context.Context, req *protos.P
 
 // GPULabel returns the label added to nodes with GPU resource.
 func (c *cloudProviderServer) GPULabel(ctx context.Context, req *protos.GPULabelRequest) (*protos.GPULabelResponse, error) {
+
 	//here TODO the real computations
+
 	client, err := newClient()
 	if err != nil {
-		log.Printf("Error during creation http client: %v", err)
-		//return nil, err	// TODO probably there is a specific error
+		return nil, fmt.Errorf("failed to create a client: %v", err)
 	}
 
 	// Send a GET request to the nodegroup controller
 	reply, err := client.Get("https://localhost:9009/gpu/label") // TODO create a parameter
 	if err != nil {
-		log.Printf("Error during HTTP request: %v", err)
-		//return nil,err // TODO probably there is a specific error
+		return nil, fmt.Errorf("failed to execute get query: %v", err)
 	}
 	defer reply.Body.Close()
 
 	// Check the response status code
-	if reply.StatusCode == http.StatusNoContent {
+	if reply.StatusCode == http.StatusNotFound {
 		return &protos.GPULabelResponse{}, nil //TODO probably there is a specific error
 	} else if reply.StatusCode != http.StatusOK {
-		log.Printf("errore: server ha risposto con status %d", reply.StatusCode)
-		return nil, nil
+		return nil, fmt.Errorf("server responded with status %d", reply.StatusCode)
 	}
 
 	// Decode the JSON response
 	var gpuLabel string
 	if err := json.NewDecoder(reply.Body).Decode(&gpuLabel); err != nil {
-		return nil, fmt.Errorf("errore nel decoding JSON: %v", err)
+		return nil, fmt.Errorf("error decoding JSON: %v", err)
 	}
 
 	return &protos.GPULabelResponse{
@@ -223,32 +226,32 @@ func (c *cloudProviderServer) GPULabel(ctx context.Context, req *protos.GPULabel
 
 // GetAvailableGPUTypes return all available GPU types cloud provider supports.
 func (c *cloudProviderServer) GetAvailableGPUTypes(ctx context.Context, req *protos.GetAvailableGPUTypesRequest) (*protos.GetAvailableGPUTypesResponse, error) {
+
 	//here TODO the real computations
+
 	client, err := newClient()
 	if err != nil {
-		log.Printf("Error during creation http client: %v", err)
-		//return nil, err	// TODO probably there is a specific error
+		return nil, fmt.Errorf("failed to create a client: %v", err)
 	}
+
 	// Send a GET request to the nodegroup controller
 	reply, err := client.Get("https://localhost:9009/gpu/types") // TODO create a parameter
 	if err != nil {
-		log.Printf("Error during HTTP request: %v", err)
-		//return nil,err // TODO probably there is a specific error
+		return nil, fmt.Errorf("failed to execute get query: %v", err)
 	}
 	defer reply.Body.Close()
 
 	// Check the response status code
-	if reply.StatusCode == http.StatusNoContent {
+	if reply.StatusCode == http.StatusNotFound {
 		return &protos.GetAvailableGPUTypesResponse{}, nil //TODO probably there is a specific error
 	} else if reply.StatusCode != http.StatusOK {
-		log.Printf("errore: server ha risposto con status %d", reply.StatusCode)
-		return nil, nil
+		return nil, fmt.Errorf("server responded with status %d", reply.StatusCode)
 	}
 
 	// Decode the JSON response
 	var gpuLabels []string
 	if err := json.NewDecoder(reply.Body).Decode(&gpuLabels); err != nil {
-		return nil, fmt.Errorf("errore nel decoding JSON: %v", err)
+		return nil, fmt.Errorf("error decoding JSON: %v", err)
 	}
 
 	// Convert the response to the protos format
@@ -279,12 +282,14 @@ func (c *cloudProviderServer) Refresh(ctx context.Context, req *protos.RefreshRe
 // to the size of a node group once everything stabilizes (new nodes finish startup and
 // registration or removed nodes are deleted completely).
 func (c *cloudProviderServer) NodeGroupTargetSize(ctx context.Context, req *protos.NodeGroupTargetSizeRequest) (*protos.NodeGroupTargetSizeResponse, error) {
+
 	//here TODO the real computations
+
 	client, err := newClient()
 	if err != nil {
-		log.Printf("Error during creation http client: %v", err)
-		//return nil, err	// TODO probably there is a specific error
+		return nil, fmt.Errorf("failed to create a client: %v", err)
 	}
+
 	// Take the parameter
 	nodeId := req.Id
 	url := fmt.Sprintf("https://localhost:9009/nodegroup/current-size?id=%s", nodeId)
@@ -292,23 +297,21 @@ func (c *cloudProviderServer) NodeGroupTargetSize(ctx context.Context, req *prot
 	// Send a GET request to the nodegroup controller
 	reply, err := client.Get(url) // TODO create a parameter
 	if err != nil {
-		log.Printf("Error during HTTP request: %v", err)
-		//return nil,err // TODO probably there is a specific error
+		return nil, fmt.Errorf("failed to execute get query: %v", err)
 	}
 	defer reply.Body.Close()
 
 	// Check the response status code
-	if reply.StatusCode == http.StatusNoContent {
+	if reply.StatusCode == http.StatusNotFound {
 		return &protos.NodeGroupTargetSizeResponse{}, nil //TODO probably there is a specific error
 	} else if reply.StatusCode != http.StatusOK {
-		log.Printf("errore: server ha risposto con status %d", reply.StatusCode)
-		return nil, nil
+		return nil, fmt.Errorf("server responded with status %d", reply.StatusCode)
 	}
 
 	// Decode the JSON response
 	var currentSize Nodegroup
 	if err := json.NewDecoder(reply.Body).Decode(&currentSize); err != nil {
-		return nil, fmt.Errorf("errore nel decoding JSON: %v", err)
+		return nil, fmt.Errorf("error decoding JSON: %v", err)
 	}
 
 	return &protos.NodeGroupTargetSizeResponse{
@@ -320,12 +323,13 @@ func (c *cloudProviderServer) NodeGroupTargetSize(ctx context.Context, req *prot
 // to explicitly name it and use NodeGroupDeleteNodes. This function should wait until
 // node group size is updated.
 func (c *cloudProviderServer) NodeGroupIncreaseSize(ctx context.Context, req *protos.NodeGroupIncreaseSizeRequest) (*protos.NodeGroupIncreaseSizeResponse, error) {
+
 	//here TODO the real computations
 
+	//  TODO change the get with a post
 	client, err := newClient()
 	if err != nil {
-		log.Printf("Error during creation http client: %v", err)
-		//return nil, err	// TODO probably there is a specific error
+		return nil, fmt.Errorf("failed to create a client: %v", err)
 	}
 	// Take the parameter
 	nodegroupId := req.Id
@@ -336,18 +340,15 @@ func (c *cloudProviderServer) NodeGroupIncreaseSize(ctx context.Context, req *pr
 	log.Printf("l'url è %s", url)
 	reply, err := client.Get(url) // TODO create a parameter
 	if err != nil {
-		log.Printf("Error during HTTP request: %v", err)
-		//return nil,err // TODO probably there is a specific error
+		return nil, fmt.Errorf("failed to execute get query: %v", err)
 	}
 	defer reply.Body.Close()
 
 	// Check the response status code
-	if reply.StatusCode == http.StatusNoContent {
+	if reply.StatusCode == http.StatusNotFound {
 		return &protos.NodeGroupIncreaseSizeResponse{}, nil //TODO probably there is a specific error
 	} else if reply.StatusCode != http.StatusOK {
-		log.Printf("status code è %d", reply.StatusCode)
-		log.Printf("errore: server ha risposto con status %d", reply.StatusCode)
-		return nil, nil
+		return nil, fmt.Errorf("server responded with status %d", reply.StatusCode)
 	}
 	return &protos.NodeGroupIncreaseSizeResponse{}, nil
 }
@@ -356,12 +357,13 @@ func (c *cloudProviderServer) NodeGroupIncreaseSize(ctx context.Context, req *pr
 // of the node group with that). Error is returned either on failure or if the given node
 // doesn't belong to this node group. This function should wait until node group size is updated.
 func (c *cloudProviderServer) NodeGroupDeleteNodes(ctx context.Context, req *protos.NodeGroupDeleteNodesRequest) (*protos.NodeGroupDeleteNodesResponse, error) {
+
 	//here TODO the real computations
 
+	//  TODO change the get with a post
 	client, err := newClient()
 	if err != nil {
-		log.Printf("Error during creation http client: %v", err)
-		//return nil, err	// TODO probably there is a specific error
+		return nil, fmt.Errorf("failed to create a client: %v", err)
 	}
 	// Take the parameter
 	nodeId := req.Nodes[0].ProviderID
@@ -373,18 +375,15 @@ func (c *cloudProviderServer) NodeGroupDeleteNodes(ctx context.Context, req *pro
 	log.Printf("l'url è %s", url)
 	reply, err := client.Get(url) // TODO create a parameter
 	if err != nil {
-		log.Printf("Error during HTTP request: %v", err)
-		//return nil,err // TODO probably there is a specific error
+		return nil, fmt.Errorf("failed to execute get query: %v", err)
 	}
 	defer reply.Body.Close()
 
 	// Check the response status code
-	if reply.StatusCode == http.StatusNoContent {
+	if reply.StatusCode == http.StatusNotFound {
 		return &protos.NodeGroupDeleteNodesResponse{}, nil //TODO probably there is a specific error
 	} else if reply.StatusCode != http.StatusOK {
-		log.Printf("status code è %d", reply.StatusCode)
-		log.Printf("errore: server ha risposto con status %d", reply.StatusCode)
-		return nil, nil
+		return nil, fmt.Errorf("server responded with status %d", reply.StatusCode)
 	}
 	return &protos.NodeGroupDeleteNodesResponse{}, nil
 }
@@ -425,12 +424,12 @@ func (c *cloudProviderServer) NodeGroupDecreaseTargetSize(ctx context.Context, r
 
 // NodeGroupNodes returns a list of all nodes that belong to this node group.
 func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.NodeGroupNodesRequest) (*protos.NodeGroupNodesResponse, error) {
+
 	//here TODO the real computations
 
 	client, err := newClient()
 	if err != nil {
-		log.Printf("Error during creation http client: %v", err)
-		//return nil, err	// TODO probably there is a specific error
+		return nil, fmt.Errorf("failed to create a client: %v", err)
 	}
 	// Take the parameter
 	nodegroupId := req.Id
@@ -439,23 +438,21 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 	// Send a GET request to the nodegroup controller
 	reply, err := client.Get(url) // TODO create a parameter
 	if err != nil {
-		log.Printf("Error during HTTP request: %v", err)
-		//return nil,err // TODO probably there is a specific error
+		return nil, fmt.Errorf("failed to execute get query: %v", err)
 	}
 	defer reply.Body.Close()
 
 	// Check the response status code
-	if reply.StatusCode == http.StatusNoContent {
-		return &protos.NodeGroupNodesResponse{}, nil //TODO probably there is a specific error
+	if reply.StatusCode == http.StatusNotFound {
+		return &protos.NodeGroupNodesResponse{}, fmt.Errorf("node with id %s doesn't exist", req.Id)
 	} else if reply.StatusCode != http.StatusOK {
-		log.Printf("errore: server ha risposto con status %d", reply.StatusCode)
-		return nil, nil
+		return nil, fmt.Errorf("server responded with status %d", reply.StatusCode)
 	}
 
 	// Decode the JSON response
-	var nodeList []Node
+	var nodeList []NodeMinInfo
 	if err := json.NewDecoder(reply.Body).Decode(&nodeList); err != nil {
-		return nil, fmt.Errorf("errore nel decoding JSON: %v", err)
+		return nil, fmt.Errorf("error decoding JSON: %v", err)
 	}
 
 	// Convert the response to the protos format
@@ -464,7 +461,10 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 		protoNodes[i] = &protos.Instance{
 			Id: node.Id,
 			Status: &protos.InstanceStatus{
-				InstanceState: 1,
+				InstanceState: protos.InstanceStatus_InstanceState(node.InstanceStatus.InstanceState),
+				ErrorInfo: &protos.InstanceErrorInfo{
+					ErrorMessage: node.InstanceStatus.InstanceErrorInfo,
+				},
 			},
 		}
 	}
@@ -473,40 +473,6 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 		Instances: protoNodes,
 	}, nil
 }
-
-/*log.Printf("INFO ABOUT NODES OF NODEGROUPS, per nodegropu %s", req.Id)
-	if test == 1 {
-		log.Printf("return sud-> 1 node")
-		return &protos.NodeGroupNodesResponse{
-			Instances: []*protos.Instance{
-				{
-					Id: "instance-zf6d5",
-					Status: &protos.InstanceStatus{
-						InstanceState: 1,
-					},
-				},
-			},
-		}, nil
-	} else {
-		log.Printf("return sud-> 2 nodes")
-		return &protos.NodeGroupNodesResponse{
-			Instances: []*protos.Instance{
-				{
-					Id: "instance-zf6d5",
-					Status: &protos.InstanceStatus{
-						InstanceState: 1,
-					},
-				},
-				{
-					Id: "liqo-remoto",
-					Status: &protos.InstanceStatus{
-						InstanceState: 1,
-					},
-				},
-			},
-		}, nil
-	}
-}*/
 
 // NodeGroupTemplateNodeInfo returns a structure of an empty (as if just started) node,
 // with all of the labels, capacity and allocatable information. This will be used in
@@ -535,7 +501,6 @@ func main() {
 	service := &cloudProviderServer{}
 
 	protos.RegisterCloudProviderServer(server, service)
-	//require.NoError(t, err)
 
 	log.Printf("server partito")
 	server.Serve(lis)

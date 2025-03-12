@@ -25,8 +25,6 @@ var mapNode = make(map[string]Node)
 // key is id nodegroup, value is nodegroup
 var mapNodegroup = make(map[string]Nodegroup)
 
-//TODO change all int in int32
-
 // TODO change errorInfo in a struct
 type InstanceStatus struct {
 	InstanceState     int32 //from zero to three
@@ -48,9 +46,29 @@ type Nodegroup struct {
 	Nodes       []string `json:"nodes"` //TODO maybe put only ids of the nodes?
 }
 
-//type NodegroupCurrentSize struct {
-//	CurrentSize int32 `json:"currentSize"`
-//}
+// HERE START CUSTOM OBJECTS TO ADHERE GRPC TYPES
+
+type NodegroupMinInfo struct {
+	Id      string `json:"id"`
+	MaxSize int32  `json:"maxSize"`
+	MinSize int32  `json:"minSize"`
+}
+
+var nodegroupListMinInfo []NodegroupMinInfo = make([]NodegroupMinInfo, 0, 5)
+
+type NodegroupCurrentSize struct {
+	CurrentSize int32 `json:"currentSize"`
+}
+
+type NodeMinInfo struct {
+	Id             string         `json:"id"`
+	InstanceStatus InstanceStatus `json:"--"`
+}
+
+// Node list
+var nodeMinInfoList []NodeMinInfo = make([]NodeMinInfo, 0, 5)
+
+// HERE END CUSTOM OBJECTS TO ADHERE GRPC TYPES
 
 // Nodegroup list with all fields
 var nodegroupList []Nodegroup = make([]Nodegroup, 0, 5)
@@ -70,11 +88,13 @@ func getAllNodegroups(w http.ResponseWriter) {
 		// Check if it is cached
 		if !nodegroupIdsCached {
 			for _, nodegroup := range mapNodegroup {
-				nodegroupList = append(nodegroupList, nodegroup)
+				nodegroupMinInfo := NodegroupMinInfo{Id: nodegroup.Id, MaxSize: nodegroup.MaxSize, MinSize: nodegroup.MinSize}
+				//nodegroupList = append(nodegroupList, nodegroup)
+				nodegroupListMinInfo = append(nodegroupListMinInfo, nodegroupMinInfo)
 			}
 			nodegroupIdsCached = true
 		}
-		writeGetResponse(w, http.StatusOK, nodegroupList, "")
+		writeGetResponse(w, http.StatusOK, nodegroupListMinInfo, "")
 	}
 }
 
@@ -82,13 +102,14 @@ func getAllNodegroups(w http.ResponseWriter) {
 func getNodegroupForNode(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	node, exist := mapNode[queryParams.Get("id")]
-	if !exist { //TODO add different errors for node doesn't exist and he hasn't a nodegroup
+	if !exist {
 		writeGetResponse(w, http.StatusNotFound, nil, "Node not found")
 		return
 	}
 	if node.NodegroupId != "" {
 		nodegroup := mapNodegroup[node.NodegroupId]
-		writeGetResponse(w, http.StatusOK, nodegroup, "")
+		nodegroupMinInfo := NodegroupMinInfo{Id: nodegroup.Id, MaxSize: nodegroup.MaxSize, MinSize: nodegroup.MinSize}
+		writeGetResponse(w, http.StatusOK, nodegroupMinInfo, "")
 	} else {
 		writeGetResponse(w, http.StatusNotFound, nil, "Nodegroup not found")
 	}
@@ -98,14 +119,13 @@ func getNodegroupForNode(w http.ResponseWriter, r *http.Request) {
 // getCurrentSize get the current size of a nodegroup
 func getCurrentSize(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
-	log.Printf("id è %s", queryParams.Get("id"))
 	nodegroup, exist := mapNodegroup[queryParams.Get("id")]
-	if !exist { //TODO error node id doesn't exist
+	if !exist {
 		writeGetResponse(w, http.StatusNotFound, nil, "Nodegroup not found")
 		return
 	} else {
-		//nodegroupCurrentSize := NodegroupCurrentSize{CurrentSize: nodegroup.CurrentSize}
-		writeGetResponse(w, http.StatusOK, nodegroup, "")
+		nodegroupCurrentSize := NodegroupCurrentSize{CurrentSize: nodegroup.CurrentSize}
+		writeGetResponse(w, http.StatusOK, nodegroupCurrentSize, "")
 	}
 }
 
@@ -113,16 +133,20 @@ func getCurrentSize(w http.ResponseWriter, r *http.Request) {
 func getNodegroupNodes(w http.ResponseWriter, r *http.Request) {
 
 	// Clear the list before adding the new nodes
-	nodeList = nodeList[:0]
+	nodeMinInfoList = nodeMinInfoList[:0]
 	nodegroup, exist := mapNodegroup[r.URL.Query().Get("id")]
 	if !exist {
 		writeGetResponse(w, http.StatusNotFound, nil, "Nodegroup not found")
 	}
-	for _, node := range nodegroup.Nodes {
-		nodeList = append(nodeList, mapNode[node])
+	if len(nodegroup.Nodes) == 0 {
+		writeGetResponse(w, http.StatusNotFound, nil, "Nodes not found")
+	} else {
+		for _, nodeId := range nodegroup.Nodes {
+			nodeX := mapNode[nodeId]
+			nodeMinInfoList = append(nodeMinInfoList, NodeMinInfo{Id: nodeX.Id, InstanceStatus: nodeX.InstanceStatus})
+		}
+		writeGetResponse(w, http.StatusOK, nodeMinInfoList, "")
 	}
-	// TODO need to differentiate empty and full?
-	writeGetResponse(w, http.StatusOK, nodeList, "")
 }
 
 // writeGetResponse write the response of a get request
@@ -151,7 +175,9 @@ func createNodegroup(w http.ResponseWriter, r *http.Request) {
 	}
 	mapNodegroup[newNodegroup.Id] = newNodegroup
 	// TODO check if we need a lock on nodegroupiscached for the get all nodegroups
-	nodegroupList = append(nodegroupList, newNodegroup)
+	newNodegroupMinInfo := NodegroupMinInfo{Id: newNodegroup.Id, MaxSize: newNodegroup.MaxSize, MinSize: newNodegroup.MinSize}
+	nodegroupListMinInfo = append(nodegroupListMinInfo, newNodegroupMinInfo)
+	//nodegroupList = append(nodegroupList, newNodegroup)
 	writeGetResponse(w, http.StatusCreated, nil, "")
 }
 
@@ -214,14 +240,13 @@ func scaleDownNodegroup(w http.ResponseWriter, r *http.Request) {
 	nodegroup.CurrentSize--
 	mapNodegroup[nodegroupId] = nodegroup
 	delete(mapNode, nodeId)
-	writeGetResponse(w, http.StatusNoContent, nil, "")
+	writeGetResponse(w, http.StatusOK, nil, "")
 }
 
 // End of the list of function inside the handle connection------------------------------------------------
 
 // TODO transfer case code inside functions
 func handleConnection(w http.ResponseWriter, r *http.Request) {
-	log.Printf("il path è %s", r.URL.Path)
 	switch r.URL.Path {
 	case "/nodegroup":
 
@@ -343,14 +368,13 @@ func main() {
 	//go startPeriodicFunction()
 	mapNodegroup["primonodegroup"] = Nodegroup{Id: "primonodegroup", MaxSize: 3, MinSize: 1, CurrentSize: 2, Nodes: []string{"uno", "tre"}}
 	mapNodegroup["secondonodegroup"] = Nodegroup{Id: "secondonodegroup", MaxSize: 3, MinSize: 1, CurrentSize: 2, Nodes: []string{"quattro", "due"}}
-	mapNode["uno"] = Node{Id: "uno", NodegroupId: "primonodegroup"}
-	mapNode["due"] = Node{Id: "due", NodegroupId: "secondonodegroup"}
-	mapNode["tre"] = Node{Id: "tre", NodegroupId: "primonodegroup"}
-	mapNode["quattro"] = Node{Id: "quattro", NodegroupId: "secondonodegroup"}
+	mapNode["uno"] = Node{Id: "uno", NodegroupId: "primonodegroup", InstanceStatus: InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
+	mapNode["due"] = Node{Id: "due", NodegroupId: "secondonodegroup", InstanceStatus: InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
+	mapNode["tre"] = Node{Id: "tre", NodegroupId: "primonodegroup", InstanceStatus: InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
+	mapNode["quattro"] = Node{Id: "quattro", NodegroupId: "secondonodegroup", InstanceStatus: InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
 	gpuLabelsList = append(gpuLabelsList, "first type")
 	gpuLabelsList = append(gpuLabelsList, "second type")
 
-	//http.HandleFunc("/", handleConnection)
 	mux := http.NewServeMux()
 	//TODO use different handler for different routes
 	mux.HandleFunc("/", handleConnection)
@@ -359,9 +383,3 @@ func main() {
 		log.Fatalf("failed to start server, %v ", err)
 	}
 }
-
-/*err := http.ListenAndServe(":9009", nil)
-	if err != nil {
-		log.Fatalf("failed to start server, %v ", err)
-	}
-}*/
