@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
-	"strings"
 
 	"net/http"
 )
@@ -105,9 +104,9 @@ func getAllNodegroups(w http.ResponseWriter) {
 // nodegroupForNode get the nodegroup for a specific node
 func getNodegroupForNode(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
-	id := queryParams.Get("id")
-	idWithoutPrefix := strings.TrimPrefix(id, "k3s://")
-	node, exist := mapNode[idWithoutPrefix]
+	//id := queryParams.Get("id")
+	//idWithoutPrefix := strings.TrimPrefix(id, "k3s://")
+	node, exist := mapNode[queryParams.Get("id")]
 	if !exist {
 		writeGetResponse(w, http.StatusNotFound, nil, "Node not found")
 		return
@@ -229,7 +228,7 @@ func scaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
 	)
 	output, err := cmd.CombinedOutput()
 	log.Printf("Output: %s %s", output, err)
-	mapNode["liqo-remoto"] = Node{Id: "liqo-remoto", NodegroupId: "nodegroupTutto"}
+	mapNode["liqo-remoto"] = Node{Id: "liqo-remoto", NodegroupId: "SINGLE", InstanceStatus: InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
 	nodegroup := mapNodegroup[nodegroupId]
 	nodegroup.CurrentSize++
 	nodegroup.Nodes = append(nodegroup.Nodes, "liqo-remoto")
@@ -397,7 +396,7 @@ func main() {
 	mapNode["quattro"] = Node{Id: "quattro", NodegroupId: "secondonodegroup", InstanceStatus: InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
 	*/
 	mapNodegroup["nodegroupTutto"] = Nodegroup{Id: "nodegroupTutto", MaxSize: 3, MinSize: 1, CurrentSize: 1, Nodes: []string{"instance-zf6d5"}}
-	mapNode["instance-zf6d5"] = Node{Id: "instance-zf6d5", NodegroupId: "nodegroupTutto", InstanceStatus: InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
+	mapNode["instance-zf6d5"] = Node{Id: "instance-zf6d5", NodegroupId: "SINGLE", InstanceStatus: InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
 	gpuLabelsList = append(gpuLabelsList, "first type")
 	gpuLabelsList = append(gpuLabelsList, "second type")
 

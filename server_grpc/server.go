@@ -148,7 +148,8 @@ func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.
 	}
 
 	// Take the parameter
-	nodeId := req.Node.ProviderID
+	//TODO use name or provider id? Liqo 0.10 non assegna Provider ID
+	nodeId := req.Node.Name
 	url := fmt.Sprintf("https://localhost:9009/nodegroup/ownership?id=%s", nodeId)
 	log.Printf("url prendi nodegroup di nodo %s", url)
 
