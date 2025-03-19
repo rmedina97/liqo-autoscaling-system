@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os/exec"
+	"strings"
 
 	"net/http"
 )
@@ -103,7 +105,9 @@ func getAllNodegroups(w http.ResponseWriter) {
 // nodegroupForNode get the nodegroup for a specific node
 func getNodegroupForNode(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
-	node, exist := mapNode[queryParams.Get("id")]
+	id := queryParams.Get("id")
+	idWithoutPrefix := strings.TrimPrefix(id, "k3s://")
+	node, exist := mapNode[idWithoutPrefix]
 	if !exist {
 		writeGetResponse(w, http.StatusNotFound, nil, "Node not found")
 		return
@@ -147,6 +151,7 @@ func getNodegroupNodes(w http.ResponseWriter, r *http.Request) {
 			nodeX := mapNode[nodeId]
 			nodeMinInfoList = append(nodeMinInfoList, NodeMinInfo{Id: nodeX.Id, InstanceStatus: nodeX.InstanceStatus})
 		}
+		log.Printf("nodeMinInfoList: %v", nodeMinInfoList)
 		writeGetResponse(w, http.StatusOK, nodeMinInfoList, "")
 	}
 }
@@ -159,6 +164,7 @@ func writeGetResponse(w http.ResponseWriter, statusCode int, data any, errMsg st
 		http.Error(w, errMsg, statusCode)
 		return
 	}
+	log.Printf("data: %v inviati", data)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", err), http.StatusInternalServerError)
 	}
@@ -212,18 +218,21 @@ func scaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	//numberToAdd := queryParams.Get("deltaInt")
 	nodegroupId := queryParams.Get("id")
-	/*cmd := exec.Command(
+	cmd := exec.Command(
 		"ssh",
 		"-J", "bastion@ssh.crownlabs.polito.it",
 		"crownlabs@10.97.97.14",
-		"liqoctl", "unpeer", "remoto", "--skip-confirm",
+		"liqoctl", "peer", "out-of-band", "remoto",
+		"--auth-url", "https://172.16.203.62:32473",
+		"--cluster-id", "1b5f548d-630b-4a95-90e2-9157b5a560ba",
+		"--auth-token", "dea56520895f222a8575f58270f08df46a8249d7180da6b5b747dd9cd2d62261e704a3c1c9b21abfdb0094eb02e2e5401776634e64f6aca480549c423fbca936",
 	)
 	output, err := cmd.CombinedOutput()
-	log.Printf("Fine SSH")*/
-	mapNode["cinque"] = Node{Id: "cinque", NodegroupId: "secondo nodegroup"}
+	log.Printf("Output: %s %s", output, err)
+	mapNode["liqo-remoto"] = Node{Id: "liqo-remoto", NodegroupId: "nodegroupTutto"}
 	nodegroup := mapNodegroup[nodegroupId]
 	nodegroup.CurrentSize++
-	nodegroup.Nodes = append(nodegroup.Nodes, "cinque")
+	nodegroup.Nodes = append(nodegroup.Nodes, "liqo-remoto")
 	mapNodegroup[nodegroupId] = nodegroup
 	writeGetResponse(w, http.StatusOK, nil, "")
 }
@@ -233,6 +242,17 @@ func scaleDownNodegroup(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	nodegroupId := queryParams.Get("nodegroupid")
 	nodeId := queryParams.Get("id")
+	cmd := exec.Command(
+		"ssh",
+		"-J", "bastion@ssh.crownlabs.polito.it",
+		"crownlabs@10.97.97.14",
+		"liqoctl", "unpeer", "remoto", "--skip-confirm",
+	)
+	output, err := cmd.CombinedOutput()
+	log.Printf("Fine SSH, %s %s", output, err)
+	if err != nil {
+		log.Printf("Error during SSH: %v", err)
+	}
 	nodegroup := mapNodegroup[nodegroupId]
 	for i, node := range nodegroup.Nodes {
 		if node == nodeId { // Remove the node from the list
@@ -369,12 +389,15 @@ func listNodeOfNodegroup() {
 func main() {
 
 	//go startPeriodicFunction()
-	mapNodegroup["primonodegroup"] = Nodegroup{Id: "primonodegroup", MaxSize: 3, MinSize: 1, CurrentSize: 2, Nodes: []string{"uno", "tre"}}
+	/*mapNodegroup["primonodegroup"] = Nodegroup{Id: "primonodegroup", MaxSize: 3, MinSize: 1, CurrentSize: 2, Nodes: []string{"uno", "tre"}}
 	mapNodegroup["secondonodegroup"] = Nodegroup{Id: "secondonodegroup", MaxSize: 3, MinSize: 1, CurrentSize: 2, Nodes: []string{"quattro", "due"}}
 	mapNode["uno"] = Node{Id: "uno", NodegroupId: "primonodegroup", InstanceStatus: InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
 	mapNode["due"] = Node{Id: "due", NodegroupId: "secondonodegroup", InstanceStatus: InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
 	mapNode["tre"] = Node{Id: "tre", NodegroupId: "primonodegroup", InstanceStatus: InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
 	mapNode["quattro"] = Node{Id: "quattro", NodegroupId: "secondonodegroup", InstanceStatus: InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
+	*/
+	mapNodegroup["nodegroupTutto"] = Nodegroup{Id: "nodegroupTutto", MaxSize: 3, MinSize: 1, CurrentSize: 1, Nodes: []string{"instance-zf6d5"}}
+	mapNode["instance-zf6d5"] = Node{Id: "instance-zf6d5", NodegroupId: "nodegroupTutto", InstanceStatus: InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
 	gpuLabelsList = append(gpuLabelsList, "first type")
 	gpuLabelsList = append(gpuLabelsList, "second type")
 

@@ -42,6 +42,16 @@ type NodeMinInfo struct {
 	InstanceStatus InstanceStatus `json:"--"`
 }
 
+type NodegroupMinInfo struct {
+	Id      string `json:"id"`
+	MaxSize int32  `json:"maxSize"`
+	MinSize int32  `json:"minSize"`
+}
+
+type NodegroupCurrentSize struct {
+	CurrentSize int32 `json:"currentSize"`
+}
+
 type GPUTypes struct {
 	Name  string
 	Specs string
@@ -104,7 +114,7 @@ func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGr
 	}
 
 	// Decode the JSON response
-	var nodeGroups []Nodegroup
+	var nodeGroups []NodegroupMinInfo
 	if err := json.NewDecoder(reply.Body).Decode(&nodeGroups); err != nil {
 		return nil, fmt.Errorf("error decoding JSON: %v", err)
 	}
@@ -118,6 +128,7 @@ func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGr
 			MaxSize: nodegroup.MaxSize,
 		}
 	}
+	log.Printf("NodeGroups: %v di ritorno per chiamata all", protoNodeGroups)
 	// Return the response
 	return &protos.NodeGroupsResponse{
 		NodeGroups: protoNodeGroups,
@@ -139,6 +150,7 @@ func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.
 	// Take the parameter
 	nodeId := req.Node.ProviderID
 	url := fmt.Sprintf("https://localhost:9009/nodegroup/ownership?id=%s", nodeId)
+	log.Printf("url prendi nodegroup di nodo %s", url)
 
 	// Send a GET request to the nodegroup controller
 	reply, err := client.Get(url) // TODO create a better parameter, maybe using something more complex like DefaultClient
@@ -155,10 +167,11 @@ func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.
 	}
 
 	// Decode the JSON response
-	var nodeGroup Nodegroup
+	var nodeGroup NodegroupMinInfo
 	if err := json.NewDecoder(reply.Body).Decode(&nodeGroup); err != nil {
 		return nil, fmt.Errorf("error decoding JSON: %v", err)
 	}
+	log.Printf("NodeGroupForNode: %s id come stringa, per il nodo %s", nodeGroup.Id, req.Node.ProviderID)
 
 	// Convert the response to the protos format
 	protoNodeGroup := &protos.NodeGroup{
@@ -166,6 +179,7 @@ func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.
 		MinSize: nodeGroup.MinSize,
 		MaxSize: nodeGroup.MaxSize,
 	}
+	log.Printf("NodeGroupForNode: %v di ritorno per chiamata get nodegroup of the node, differenza %s %s", protoNodeGroup, nodeGroup.Id, req.Node.ProviderID)
 
 	// Return the response
 	return &protos.NodeGroupForNodeResponse{
@@ -309,10 +323,11 @@ func (c *cloudProviderServer) NodeGroupTargetSize(ctx context.Context, req *prot
 	}
 
 	// Decode the JSON response
-	var currentSize Nodegroup
+	var currentSize NodegroupCurrentSize
 	if err := json.NewDecoder(reply.Body).Decode(&currentSize); err != nil {
 		return nil, fmt.Errorf("error decoding JSON: %v", err)
 	}
+	log.Printf("NodeGroupTargetSize: %v di ritorno per chiamata get current size of the nodegroup", currentSize)
 
 	return &protos.NodeGroupTargetSizeResponse{
 		TargetSize: currentSize.CurrentSize,
@@ -452,6 +467,7 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 	if err := json.NewDecoder(reply.Body).Decode(&nodeList); err != nil {
 		return nil, fmt.Errorf("error decoding JSON: %v", err)
 	}
+	log.Printf("NodeGroupNodes: %d lunghezza lista", len(nodeList))
 
 	// Convert the response to the protos format
 	protoNodes := make([]*protos.Instance, len(nodeList))
@@ -459,13 +475,14 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 		protoNodes[i] = &protos.Instance{
 			Id: node.Id,
 			Status: &protos.InstanceStatus{
-				InstanceState: protos.InstanceStatus_InstanceState(node.InstanceStatus.InstanceState),
-				ErrorInfo: &protos.InstanceErrorInfo{
-					ErrorMessage: node.InstanceStatus.InstanceErrorInfo,
-				},
+				InstanceState: 1, //protos.InstanceStatus_InstanceState(node.InstanceStatus.InstanceState),
+				//ErrorInfo: &protos.InstanceErrorInfo{
+				//	ErrorMessage: "", //node.InstanceStatus.InstanceErrorInfo,
+				//},
 			},
 		}
 	}
+	log.Printf("nodegroupNodes: %v di ritorno per chiamata get nodes of the nodegroup", protoNodes)
 
 	return &protos.NodeGroupNodesResponse{
 		Instances: protoNodes,
@@ -500,7 +517,6 @@ func main() {
 
 	protos.RegisterCloudProviderServer(server, service)
 
-	log.Printf("server partito")
 	server.Serve(lis)
 
 }
