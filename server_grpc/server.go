@@ -180,7 +180,7 @@ func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.
 		MinSize: nodeGroup.MinSize,
 		MaxSize: nodeGroup.MaxSize,
 	}
-	log.Printf("NodeGroupForNode: %v di ritorno per chiamata get nodegroup of the node, differenza %s %s", protoNodeGroup, nodeGroup.Id, req.Node.ProviderID)
+	log.Printf("NodeGroupForNode: %v di ritorno per chiamata get nodegroup of the node, differenza %s %s %s", protoNodeGroup, nodeGroup.Id, req.Node.ProviderID, req.Node.Name)
 
 	// Return the response
 	return &protos.NodeGroupForNodeResponse{
