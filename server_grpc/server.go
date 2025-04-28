@@ -57,6 +57,8 @@ type GPUTypes struct {
 	Specs string
 }
 
+var flag int = 0
+
 // HERE END PERSONAL STRUCTS---------------// HERE END PERSONAL STRUCTS	---------------// HERE END PERSONAL STRUCTS
 
 // protos->package with the files definition (_grpc.pb.go and pb.go) born from the proto file
@@ -151,7 +153,6 @@ func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.
 	//TODO use name or provider id? Liqo 0.10 non assegna Provider ID
 	nodeId := req.Node.Name
 	url := fmt.Sprintf("https://localhost:9009/nodegroup/ownership?id=%s", nodeId)
-	log.Printf("url prendi nodegroup di nodo %s", url)
 
 	// Send a GET request to the nodegroup controller
 	reply, err := client.Get(url) // TODO create a better parameter, maybe using something more complex like DefaultClient
@@ -172,7 +173,6 @@ func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.
 	if err := json.NewDecoder(reply.Body).Decode(&nodeGroup); err != nil {
 		return nil, fmt.Errorf("error decoding JSON: %v", err)
 	}
-	log.Printf("NodeGroupForNode: %s id come stringa, per il nodo %s", nodeGroup.Id, req.Node.ProviderID)
 
 	// Convert the response to the protos format
 	protoNodeGroup := &protos.NodeGroup{
@@ -180,7 +180,7 @@ func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.
 		MinSize: nodeGroup.MinSize,
 		MaxSize: nodeGroup.MaxSize,
 	}
-	log.Printf("NodeGroupForNode: %v di ritorno per chiamata get nodegroup of the node, differenza %s %s %s", protoNodeGroup, nodeGroup.Id, req.Node.ProviderID, req.Node.Name)
+	log.Printf("NodeGroupForNode: %v di ritorno per chiamata get nodegroup of the node", protoNodeGroup)
 
 	// Return the response
 	return &protos.NodeGroupForNodeResponse{
@@ -343,27 +343,31 @@ func (c *cloudProviderServer) NodeGroupIncreaseSize(ctx context.Context, req *pr
 	//here TODO the real computations
 
 	//  TODO change the get with a post
-	client, err := newClient()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a client: %v", err)
-	}
-	// Take the parameter
-	nodegroupId := req.Id
-	log.Printf("l'id è %s e %s", nodegroupId, req.Id)
-	url := fmt.Sprintf("https://localhost:9009/nodegroup/scaleup?id=%s", nodegroupId)
+	if flag == 0 {
+		flag = 1
+		client, err := newClient()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create a client: %v", err)
+		}
+		// Take the parameter
+		nodegroupId := req.Id
+		log.Printf("l'id è %s e %s", nodegroupId, req.Id)
+		url := fmt.Sprintf("https://localhost:9009/nodegroup/scaleup?id=%s", nodegroupId)
 
-	// Send a GET request to the nodegroup controller
-	reply, err := client.Get(url) // TODO create a parameter
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute get query: %v", err)
-	}
-	defer reply.Body.Close()
+		// Send a GET request to the nodegroup controller
+		reply, err := client.Get(url) // TODO create a parameter
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute get query: %v", err)
+		}
+		defer reply.Body.Close()
 
-	// Check the response status code
-	if reply.StatusCode == http.StatusNotFound {
-		return &protos.NodeGroupIncreaseSizeResponse{}, nil //TODO probably there is a specific error
-	} else if reply.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("server responded with status %d", reply.StatusCode)
+		// Check the response status code
+		if reply.StatusCode == http.StatusNotFound {
+			return &protos.NodeGroupIncreaseSizeResponse{}, nil //TODO probably there is a specific error
+		} else if reply.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("server responded with status %d", reply.StatusCode)
+		}
+		flag = 0
 	}
 	return &protos.NodeGroupIncreaseSizeResponse{}, nil
 }
@@ -376,28 +380,32 @@ func (c *cloudProviderServer) NodeGroupDeleteNodes(ctx context.Context, req *pro
 	//here TODO the real computations
 
 	//  TODO change the get with a post
-	client, err := newClient()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a client: %v", err)
-	}
-	// Take the parameter
-	nodeId := req.Nodes[0].ProviderID
-	nodegroupId := req.Id
-	log.Printf("l'id è %s e %s", nodegroupId, req.Id)
-	url := fmt.Sprintf("https://localhost:9009/nodegroup/scaledown?id=%s&nodegroupid=%s", nodeId, nodegroupId)
+	if flag == 0 {
+		flag = 1
+		client, err := newClient()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create a client: %v", err)
+		}
+		// Take the parameter
+		nodeId := req.Nodes[0].ProviderID
+		nodegroupId := req.Id
+		log.Printf("l'id è %s e %s", nodegroupId, req.Id)
+		url := fmt.Sprintf("https://localhost:9009/nodegroup/scaledown?id=%s&nodegroupid=%s", nodeId, nodegroupId)
 
-	// Send a GET request to the nodegroup controller
-	reply, err := client.Get(url) // TODO create a parameter
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute get query: %v", err)
-	}
-	defer reply.Body.Close()
+		// Send a GET request to the nodegroup controller
+		reply, err := client.Get(url) // TODO create a parameter
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute get query: %v", err)
+		}
+		defer reply.Body.Close()
 
-	// Check the response status code
-	if reply.StatusCode == http.StatusNotFound {
-		return &protos.NodeGroupDeleteNodesResponse{}, nil //TODO probably there is a specific error
-	} else if reply.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("server responded with status %d", reply.StatusCode)
+		// Check the response status code
+		if reply.StatusCode == http.StatusNotFound {
+			return &protos.NodeGroupDeleteNodesResponse{}, nil //TODO probably there is a specific error
+		} else if reply.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("server responded with status %d", reply.StatusCode)
+		}
+		flag = 0
 	}
 	return &protos.NodeGroupDeleteNodesResponse{}, nil
 }

@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os/exec"
-
 	"net/http"
+	"os/exec"
 )
 
 var nodegroupIdsCached = false
@@ -163,7 +162,6 @@ func writeGetResponse(w http.ResponseWriter, statusCode int, data any, errMsg st
 		http.Error(w, errMsg, statusCode)
 		return
 	}
-	log.Printf("data: %v inviati", data)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", err), http.StatusInternalServerError)
 	}
@@ -399,7 +397,7 @@ func main() {
 	mapNode["instance-zf6d5"] = Node{Id: "instance-zf6d5", NodegroupId: "SINGLE", InstanceStatus: InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
 	gpuLabelsList = append(gpuLabelsList, "first type")
 	gpuLabelsList = append(gpuLabelsList, "second type")
-
+	// TODO maybe search local cluster and adds all the nodes inside the same nodegroup, with the label to avoid scaledown
 	mux := http.NewServeMux()
 	//TODO use different handler for different routes
 	mux.HandleFunc("/", handleConnection)
