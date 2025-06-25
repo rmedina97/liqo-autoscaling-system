@@ -40,9 +40,6 @@ var mapNode = map[string]types.Node{
 	},
 }
 
-//mapNodegroup["SINGLE"] = Nodegroup{Id: "SINGLE", MaxSize: 3, MinSize: 1, CurrentSize: 1, Nodes: []string{"instance-zf6d5"}}
-//mapNode["instance-zf6d5"] = Node{Id: "instance-zf6d5", NodegroupId: "SINGLE", InstanceStatus: InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
-
 // List of function inside the handle connection -------------------------------------------------------
 
 // getAllNodegroups get all the nodegroups
