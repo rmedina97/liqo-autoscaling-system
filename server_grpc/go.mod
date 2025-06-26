@@ -3,9 +3,11 @@ module server_grpc
 go 1.23.4
 
 require (
+	github.com/golang/protobuf v1.5.4
 	google.golang.org/grpc v1.70.0
 	google.golang.org/protobuf v1.36.5
-	k8s.io/autoscaler/cluster-autoscaler v0.0.0-20250217131422-2837c59d95be
+	k8s.io/api v0.33.0-alpha.0
+	k8s.io/apimachinery v0.33.0-alpha.0
 )
 
 require (
@@ -23,8 +25,6 @@ require (
 	golang.org/x/text v0.21.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241202173237-19429a94021a // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/api v0.33.0-alpha.0 // indirect
-	k8s.io/apimachinery v0.33.0-alpha.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738 // indirect
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect

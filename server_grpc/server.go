@@ -14,7 +14,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
-	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/externalgrpc/protos"
+	v1 "k8s.io/api/core/v1"
+	resource "k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	//"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/externalgrpc/protos"
+	"server_grpc/protos"
 
 	"net/http"
 )
@@ -61,7 +66,7 @@ var flag int = 0
 
 // HERE END PERSONAL STRUCTS---------------// HERE END PERSONAL STRUCTS	---------------// HERE END PERSONAL STRUCTS
 
-// protos->package with the files definition (_grpc.pb.go and pb.go) born from the proto file
+// protos->package with the files definition (_grpc.pb.go and pb.go) born from the protos file
 type cloudProviderServer struct {
 	protos.UnimplementedCloudProviderServer
 }
@@ -122,18 +127,18 @@ func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGr
 	}
 
 	// Convert the response to the protos format
-	protoNodeGroups := make([]*protos.NodeGroup, len(nodeGroups))
+	protosNodeGroups := make([]*protos.NodeGroup, len(nodeGroups))
 	for i, nodegroup := range nodeGroups {
-		protoNodeGroups[i] = &protos.NodeGroup{
+		protosNodeGroups[i] = &protos.NodeGroup{
 			Id:      nodegroup.Id,
 			MinSize: nodegroup.MinSize,
 			MaxSize: nodegroup.MaxSize,
 		}
 	}
-	log.Printf("NodeGroups: %v di ritorno per chiamata all", protoNodeGroups)
+	log.Printf("NodeGroups: %v di ritorno per chiamata all", protosNodeGroups)
 	// Return the response
 	return &protos.NodeGroupsResponse{
-		NodeGroups: protoNodeGroups,
+		NodeGroups: protosNodeGroups,
 	}, nil
 
 }
@@ -175,16 +180,16 @@ func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.
 	}
 
 	// Convert the response to the protos format
-	protoNodeGroup := &protos.NodeGroup{
+	protosNodeGroup := &protos.NodeGroup{
 		Id:      nodeGroup.Id,
 		MinSize: nodeGroup.MinSize,
 		MaxSize: nodeGroup.MaxSize,
 	}
-	log.Printf("NodeGroupForNode: %v di ritorno per chiamata get nodegroup of the node", protoNodeGroup)
+	log.Printf("NodeGroupForNode: %v di ritorno per chiamata get nodegroup of the node", protosNodeGroup)
 
 	// Return the response
 	return &protos.NodeGroupForNodeResponse{
-		NodeGroup: protoNodeGroup,
+		NodeGroup: protosNodeGroup,
 	}, nil
 }
 
@@ -479,9 +484,9 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 	log.Printf("NodeGroupNodes: %d lunghezza lista", len(nodeList))
 
 	// Convert the response to the protos format
-	protoNodes := make([]*protos.Instance, len(nodeList))
+	protosNodes := make([]*protos.Instance, len(nodeList))
 	for i, node := range nodeList {
-		protoNodes[i] = &protos.Instance{
+		protosNodes[i] = &protos.Instance{
 			Id: node.Id,
 			Status: &protos.InstanceStatus{
 				InstanceState: 1, //protos.InstanceStatus_InstanceState(node.InstanceStatus.InstanceState),
@@ -491,10 +496,10 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 			},
 		}
 	}
-	log.Printf("nodegroupNodes: %v di ritorno per chiamata get nodes of the nodegroup", protoNodes)
+	log.Printf("nodegroupNodes: %v di ritorno per chiamata get nodes of the nodegroup", protosNodes)
 
 	return &protos.NodeGroupNodesResponse{
-		Instances: protoNodes,
+		Instances: protosNodes,
 	}, nil
 }
 
@@ -504,7 +509,28 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 // Implementation optional: if unimplemented return error code 12 (for `Unimplemented`)
 func (c *cloudProviderServer) NodeGroupTemplateNodeInfo(ctx context.Context, req *protos.NodeGroupTemplateNodeInfoRequest) (*protos.NodeGroupTemplateNodeInfoResponse, error) {
 	log.Printf("INFO templateeeeeeeeeeee")
-	return nil, status.Error(codes.Unimplemented, "function NodeGroupTemplateNodeInfo is Unimplemented")
+
+	return &protos.NodeGroupTemplateNodeInfoResponse{
+		NodeInfo: &v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "fake-node",
+			},
+			Status: v1.NodeStatus{
+				Capacity: v1.ResourceList{
+					v1.ResourceCPU:    resource.MustParse("2"),
+					v1.ResourceMemory: resource.MustParse("4Gi"),
+					v1.ResourcePods:   resource.MustParse("110"),
+				},
+				Allocatable: v1.ResourceList{
+					v1.ResourceCPU:    resource.MustParse("2"),
+					v1.ResourceMemory: resource.MustParse("4Gi"),
+					v1.ResourcePods:   resource.MustParse("110"),
+				},
+			},
+		},
+	}, nil
+
+	//return nil, status.Error(codes.Unimplemented, "function NodeGroupTemplateNodeInfo is Unimplemented")
 }
 
 // GetOptions returns NodeGroupAutoscalingOptions that should be used for this particular
