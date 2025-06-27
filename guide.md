@@ -94,7 +94,7 @@ Main entry point that defines the HTTPS server and can be extended to handle add
 Contains the request handlers. Each handler dispatches the request to the appropriate processing chain.
 
 3. ` util/`   
-Provides utility functions used across handlers.
+Provides the basic functions used across handlers.
 
 4. ` types/`   
 Defines custom data types required for processing and responding to requests.

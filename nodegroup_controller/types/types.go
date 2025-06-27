@@ -1,8 +1,8 @@
 package types
 
-var KeyPem string = "C:/Users/ricca/Desktop/server_grpc_1.30/gRPC_server/nodegroup_controller/key.pem"
+var KeyPem string = "./key.pem"
 
-var CertPem string = "C:/Users/ricca/Desktop/server_grpc_1.30/gRPC_server/nodegroup_controller/cert.pem"
+var CertPem string = "./cert.pem"
 
 // TODO change errorInfo in a struct
 type InstanceStatus struct {
