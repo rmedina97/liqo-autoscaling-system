@@ -87,14 +87,30 @@ This component is implemented as an HTTPS server that receives requests from the
 
 Structure overview:
 
-1. ` nodegroup_controller.go`   
+1. `nodegroup_controller.go`   
 Main entry point that defines the HTTPS server and can be extended to handle additional request types.
 
-2. ` handler/`   
-Contains the request handlers. Each handler dispatches the request to the appropriate processing chain.
+2. `handler/`   
+Contains the request handlers. Each handler dispatches the request to the appropriate processing chain.NOTA DEVI FARE IN MODO CHE LA CONOSCENZA DEL LINGUAGGIO HTTP FINISCA QUI
 
-3. ` util/`   
+3. `util/`   
 Provides the basic functions used across handlers.
 
-4. ` types/`   
+4. `types/`  
 Defines custom data types required for processing and responding to requests.
+
+### `nodegroup_controller.go`
+
+Contains the server https that will accept and manage the arriving requests, sending them to the correct handler
+
+### `handler/`
+
+Contains the possible various handler to handle different types of request. An handler is a big switch, to use the direct function and at the same time need to decapsulate the request from the http language
+
+### `util/`
+
+the list of functions to be used to do the actual computation and return the answer
+
+### `types/`
+
+Custom data structure to reply with the right amount of info to the CA requests
