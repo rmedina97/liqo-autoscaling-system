@@ -76,7 +76,7 @@ type cloudProviderServer struct {
 // TODO Search if someone still uses 509 cert without san, if yes use VerifyPeerCertificate to custom accept them
 func newClient() (*http.Client, error) {
 	certPool := x509.NewCertPool()
-	certData, err := os.ReadFile("./nodegroup_controller/cert.pem")
+	certData, err := os.ReadFile("cert.pem")
 
 	if err != nil {
 		return nil, fmt.Errorf("error reading certificate: %v", err)

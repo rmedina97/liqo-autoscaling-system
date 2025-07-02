@@ -17,7 +17,7 @@ var mapNodegroup = map[string]types.Nodegroup{
 		MaxSize:     3,
 		MinSize:     1,
 		CurrentSize: 1,
-		Nodes:       []string{"instance-zf6d5"},
+		Nodes:       []string{"rmedina"},
 	},
 }
 
@@ -33,8 +33,8 @@ var nodegroupListMinInfo []types.NodegroupMinInfo = make([]types.NodegroupMinInf
 // key is id node, value is node
 // var mapNode = make(map[string]types.Node)
 var mapNode = map[string]types.Node{
-	"instance-zf6d5": {
-		Id:             "instance-zf6d5",
+	"rmedina": {
+		Id:             "rmedina",
 		NodegroupId:    "SINGLE",
 		InstanceStatus: types.InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""},
 	},
@@ -181,19 +181,15 @@ func ScaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
 	nodegroupId := queryParams.Get("id")
 	cmd := exec.Command(
 		"ssh",
-		"-J", "bastion@ssh.crownlabs.polito.it",
-		"crownlabs@10.97.97.14",
-		"liqoctl", "peer", "out-of-band", "remoto",
-		"--auth-url", "https://172.16.203.62:32473",
-		"--cluster-id", "1b5f548d-630b-4a95-90e2-9157b5a560ba",
-		"--auth-token", "dea56520895f222a8575f58270f08df46a8249d7180da6b5b747dd9cd2d62261e704a3c1c9b21abfdb0094eb02e2e5401776634e64f6aca480549c423fbca936",
+		"rmedina@192.168.11.77",
+		"liqoctl", "peer", "--remote-kubeconfig", "kubeconfig", "--skip-confirm",
 	)
 	output, err := cmd.CombinedOutput()
 	log.Printf("Output: %s %s", output, err)
-	mapNode["liqo-remoto"] = types.Node{Id: "liqo-remoto", NodegroupId: "SINGLE", InstanceStatus: types.InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
+	mapNode["remote"] = types.Node{Id: "remote", NodegroupId: "SINGLE", InstanceStatus: types.InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
 	nodegroup := mapNodegroup[nodegroupId]
 	nodegroup.CurrentSize++
-	nodegroup.Nodes = append(nodegroup.Nodes, "liqo-remoto")
+	nodegroup.Nodes = append(nodegroup.Nodes, "remote")
 	mapNodegroup[nodegroupId] = nodegroup
 	WriteGetResponse(w, http.StatusOK, nil, "")
 }
@@ -205,9 +201,8 @@ func ScaleDownNodegroup(w http.ResponseWriter, r *http.Request) {
 	nodeId := queryParams.Get("id")
 	cmd := exec.Command(
 		"ssh",
-		"-J", "bastion@ssh.crownlabs.polito.it",
-		"crownlabs@10.97.97.14",
-		"liqoctl", "unpeer", "remoto", "--skip-confirm",
+		"rmedina@192.168.11.77",
+		"liqoctl", "unpeer", "--remote-kubeconfig", "kubeconfig", "--skip-confirm",
 	)
 	output, err := cmd.CombinedOutput()
 	log.Printf("Fine SSH, %s %s", output, err)
