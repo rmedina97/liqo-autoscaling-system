@@ -178,14 +178,17 @@ func DeleteNodegroup(w http.ResponseWriter, r *http.Request) {
 func ScaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	//numberToAdd := queryParams.Get("deltaInt")
+	log.Printf("ScaleUpNodegroup called with query params: %v", queryParams)
 	nodegroupId := queryParams.Get("id")
+	//"ssh","rmedina@192.168.11.114",	
 	cmd := exec.Command(
-		"ssh",
-		"rmedina@192.168.11.77",
-		"liqoctl", "peer", "--remote-kubeconfig", "kubeconfig", "--skip-confirm",
+		"liqoctl", "peer", "--remote-kubeconfig", "/home/rmedina/kubeconfig", "--skip-confirm",
 	)
-	output, err := cmd.CombinedOutput()
-	log.Printf("Output: %s %s", output, err)
+	output, err:= cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Error during SSH:%v", err)
+	}
+	log.Printf("Output: %s ", output)
 	mapNode["remote"] = types.Node{Id: "remote", NodegroupId: "SINGLE", InstanceStatus: types.InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
 	nodegroup := mapNodegroup[nodegroupId]
 	nodegroup.CurrentSize++
@@ -200,9 +203,7 @@ func ScaleDownNodegroup(w http.ResponseWriter, r *http.Request) {
 	nodegroupId := queryParams.Get("nodegroupid")
 	nodeId := queryParams.Get("id")
 	cmd := exec.Command(
-		"ssh",
-		"rmedina@192.168.11.77",
-		"liqoctl", "unpeer", "--remote-kubeconfig", "kubeconfig", "--skip-confirm",
+		"liqoctl", "unpeer", "--remote-kubeconfig", "/home/rmedina/kubeconfig", "--skip-confirm",
 	)
 	output, err := cmd.CombinedOutput()
 	log.Printf("Fine SSH, %s %s", output, err)
