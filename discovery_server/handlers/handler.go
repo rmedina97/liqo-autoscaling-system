@@ -1,70 +1,44 @@
 package handler
 
 import (
+	fun "discovery_server/functions"
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
-	fun "discovery_server/functions"
 )
-
-// List of GPU labels
-var gpuLabelsList = []string{"first type", "second type"}
-
-// label for GPU node
-var gpuLabel string = "GPU node"
 
 func HandleConnection(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
-	case "/nodegroup":
 
-		// Get all the nodegroup
-		util.GetAllNodegroups(w)
+	case "/list":
 
-	case "/nodegroup/ownership":
+		// Send all the possible remote clusters
+		result, err := fun.ReturnList()
+		WriteGetResponse(w, result, err)
 
-		// Get the nodegroup of a specific node
-		util.GetNodegroupForNode(w, r)
+	case "/update":
 
-	case "/nodegroup/current-size":
-
-		// Get the current size of a specific nodegroup
-		util.GetCurrentSize(w, r)
-
-	case "/gpu/label":
-
-		//TODO CRUD functions for gpu label or a search
-		util.WriteGetResponse(w, http.StatusOK, gpuLabel, "")
-
-	case "/gpu/types":
-
-		//TODO CRUD functions for gpu label or a search
-		util.WriteGetResponse(w, http.StatusOK, gpuLabelsList, "")
-
-	case "/nodegroup/nodes":
-
-		// Get all the nodes of a nodegroup
-		util.GetNodegroupNodes(w, r)
-
-	case "/nodegroup/create":
-
-		// Create a new nodegroup
-		util.CreateNodegroup(w, r)
-
-	case "/nodegroup/destroy":
-
-		// Delete the target nodegroup
-		util.DeleteNodegroup(w, r)
-
-	case "/nodegroup/scaleup":
-
-		// Scale up the nodegroup of a certain amount
-		util.ScaleUpNodegroup(w, r)
-
-	case "/nodegroup/scaledown":
-
-		// Scale down the nodegroup killing a certain node
-		util.ScaleDownNodegroup(w, r)
+		// Update the list of remote clusters
+		//TODO: unwrap https request and pass only the raw data
+		//err := fun.UpdateList()
+		//WriteGetResponse(w, "", err)
 
 	default:
 		log.Printf("wrong request")
+	}
+}
+
+// WriteGetResponse write the response of a get request
+// TODO: change the status code, add the case for no data but no error
+func WriteGetResponse(w http.ResponseWriter, data any, err error) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if encodeErr := json.NewEncoder(w).Encode(data); encodeErr != nil {
+		http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", encodeErr), http.StatusInternalServerError)
 	}
 }

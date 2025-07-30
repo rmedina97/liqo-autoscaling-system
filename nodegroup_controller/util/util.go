@@ -1,11 +1,14 @@
 package util
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	types "nodegroupController/types"
+	"os"
 	"os/exec"
 )
 
@@ -176,11 +179,74 @@ func DeleteNodegroup(w http.ResponseWriter, r *http.Request) {
 
 // scaleUpNodegroup scale up the nodegroup of a certain amount
 func ScaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
+
+	// TODO implement https server that send resources needed
+
 	queryParams := r.URL.Query()
 	//numberToAdd := queryParams.Get("deltaInt")
 	log.Printf("ScaleUpNodegroup called with query params: %v", queryParams)
+
+	client, err := newClient()
+	if err != nil {
+		log.Printf("failed to create a client: %v", err)
+	}
+
+	// Send a GET request to the nodegroup controller
+	reply, err := client.Get(url) // TODO create a parameter
+	if err != nil {
+		log.Printf("failed to execute get query: %v", err)
+	}
+	defer reply.Body.Close()
+
+	// Check the response status code
+	if reply.StatusCode == http.StatusNotFound {
+		log.Printf("remote cluster not found")
+	} else if reply.StatusCode != http.StatusOK {
+		log.Printf("server responded with status %d", reply.StatusCode)
+	}
+
+	// Decode the JSON response
+	// TODO: cluster map, scegli il primo e vai di peering
+	var nodeList []NodeMinInfo
+	if err := json.NewDecoder(reply.Body).Decode(&nodeList); err != nil {
+		return nil, fmt.Errorf("error decoding JSON: %v", err)
+	}
+	log.Printf("NodeGroupNodes: %d lunghezza lista", len(nodeList))
+
+	// Convert the response to the protos format
+	// QUI invece fai il peering
+	protosNodes := make([]*protos.Instance, len(nodeList))
+	for i, node := range nodeList {
+		protosNodes[i] = &protos.Instance{
+			Id: node.Id,
+			Status: &protos.InstanceStatus{
+				InstanceState: 1, //protos.InstanceStatus_InstanceState(node.InstanceStatus.InstanceState),
+				//ErrorInfo: &protos.InstanceErrorInfo{
+				//	ErrorMessage: "", //node.InstanceStatus.InstanceErrorInfo,
+				//},
+			},
+		}
+	}
+	cmd := exec.Command(
+		"liqoctl", "peer", "--remote-kubeconfig", "/home/rmedina/kubeconfig", "--skip-confirm",
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Error during SSH:%v", err)
+	}
+	log.Printf("Output: %s ", output)
+	mapNode["remote"] = types.Node{Id: "remote", NodegroupId: "SINGLE", InstanceStatus: types.InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
+	nodegroup := mapNodegroup[nodegroupId]
+	nodegroup.CurrentSize++
+	nodegroup.Nodes = append(nodegroup.Nodes, "remote")
+	mapNodegroup[nodegroupId] = nodegroup
+	WriteGetResponse(w, http.StatusOK, nil, "")
+
+	/*queryParams := r.URL.Query()
+	//numberToAdd := queryParams.Get("deltaInt")
+	log.Printf("ScaleUpNodegroup called with query params: %v", queryParams)
 	nodegroupId := queryParams.Get("id")
-	//"ssh","rmedina@192.168.11.114",	
+	//"ssh","rmedina@192.168.11.114",
 	cmd := exec.Command(
 		"liqoctl", "peer", "--remote-kubeconfig", "/home/rmedina/kubeconfig", "--skip-confirm",
 	)
@@ -194,7 +260,7 @@ func ScaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
 	nodegroup.CurrentSize++
 	nodegroup.Nodes = append(nodegroup.Nodes, "remote")
 	mapNodegroup[nodegroupId] = nodegroup
-	WriteGetResponse(w, http.StatusOK, nil, "")
+	WriteGetResponse(w, http.StatusOK, nil, "")*/
 }
 
 // scaleDownNodegroup scale down the nodegroup killing a certain node
@@ -221,4 +287,28 @@ func ScaleDownNodegroup(w http.ResponseWriter, r *http.Request) {
 	mapNodegroup[nodegroupId] = nodegroup
 	delete(mapNode, nodeId)
 	WriteGetResponse(w, http.StatusOK, nil, "")
+}
+
+// Create a new client
+// TODO Search if someone still uses 509 cert without san, if yes use VerifyPeerCertificate to custom accept them
+func newClient() (*http.Client, error) {
+	certPool := x509.NewCertPool()
+	certData, err := os.ReadFile("cert.pem")
+
+	if err != nil {
+		return nil, fmt.Errorf("error reading certificate: %v", err)
+	}
+
+	if !certPool.AppendCertsFromPEM(certData) {
+		return nil, fmt.Errorf("failed to append certificate")
+	}
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig:   &tls.Config{RootCAs: certPool},
+			ForceAttemptHTTP2: true,
+		},
+	}
+	return client, nil
+
 }
