@@ -1,5 +1,9 @@
 package types
 
+import (
+	v1 "k8s.io/api/core/v1"
+)
+
 var KeyPem string = "./key.pem"
 
 var CertPem string = "./cert.pem"
@@ -49,3 +53,9 @@ type NodeMinInfo struct {
 
 // Node list
 //var nodeList []Node = make([]Node, 0, 20)
+
+type Cluster struct {
+	Name       string          `json:"name"`
+	Kubeconfig string          `json:"kubeconfig"`
+	Resources  v1.ResourceList `json:"resources"` // Number of resources available in the cluster
+}

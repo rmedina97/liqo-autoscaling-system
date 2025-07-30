@@ -183,6 +183,7 @@ func ScaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
 	// TODO implement https server that send resources needed
 
 	queryParams := r.URL.Query()
+	nodegroupId := queryParams.Get("id")
 	//numberToAdd := queryParams.Get("deltaInt")
 	log.Printf("ScaleUpNodegroup called with query params: %v", queryParams)
 
@@ -192,7 +193,7 @@ func ScaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send a GET request to the nodegroup controller
-	reply, err := client.Get(url) // TODO create a parameter
+	reply, err := client.Get("https://localhost:9010/clusterlist") // TODO create a parameter
 	if err != nil {
 		log.Printf("failed to execute get query: %v", err)
 	}
@@ -207,26 +208,15 @@ func ScaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
 
 	// Decode the JSON response
 	// TODO: cluster map, scegli il primo e vai di peering
-	var nodeList []NodeMinInfo
-	if err := json.NewDecoder(reply.Body).Decode(&nodeList); err != nil {
-		return nil, fmt.Errorf("error decoding JSON: %v", err)
+	var clusterList []types.Cluster
+	if err := json.NewDecoder(reply.Body).Decode(&clusterList); err != nil {
+		log.Printf("error decoding JSON: %v", err)
 	}
-	log.Printf("NodeGroupNodes: %d lunghezza lista", len(nodeList))
+	log.Printf("NodeGroupNodes: %d lunghezza lista", len(clusterList))
 
 	// Convert the response to the protos format
-	// QUI invece fai il peering
-	protosNodes := make([]*protos.Instance, len(nodeList))
-	for i, node := range nodeList {
-		protosNodes[i] = &protos.Instance{
-			Id: node.Id,
-			Status: &protos.InstanceStatus{
-				InstanceState: 1, //protos.InstanceStatus_InstanceState(node.InstanceStatus.InstanceState),
-				//ErrorInfo: &protos.InstanceErrorInfo{
-				//	ErrorMessage: "", //node.InstanceStatus.InstanceErrorInfo,
-				//},
-			},
-		}
-	}
+	// QUI invece fai il peering, serve il percorso poichè non lo puoi buttare dentro (o forse si)
+	kubeconfig := clusterList[0].Kubeconfig
 	cmd := exec.Command(
 		"liqoctl", "peer", "--remote-kubeconfig", "/home/rmedina/kubeconfig", "--skip-confirm",
 	)
