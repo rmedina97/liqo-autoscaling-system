@@ -8,23 +8,24 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-var clusterMap = map[string]Cluster{
-	"remote": {
+var clusterList = []Cluster{
+	{
 		Name:       "remote",
 		Kubeconfig: "provider.kubeconfig",
 		Resources: v1.ResourceList{
 			v1.ResourceCPU:    *resource.NewQuantity(1000, resource.DecimalSI),
 			v1.ResourceMemory: *resource.NewQuantity(2048, resource.DecimalSI),
-			v1.ResourcePods:   *resource.NewQuantity(1, resource.DecimalSI), //test per scegliere il secondo
-		}, // Example resources
+			v1.ResourcePods:   *resource.NewQuantity(1, resource.DecimalSI),
+		},
 	},
-	"remote2": {
+	{
 		Name:       "remote2",
 		Kubeconfig: "kubeconfig2",
 		Resources: v1.ResourceList{
 			v1.ResourceCPU:    *resource.NewQuantity(1000, resource.DecimalSI),
 			v1.ResourceMemory: *resource.NewQuantity(2048, resource.DecimalSI),
-			v1.ResourcePods:   *resource.NewQuantity(10, resource.DecimalSI)},
+			v1.ResourcePods:   *resource.NewQuantity(10, resource.DecimalSI),
+		},
 	},
 }
 
@@ -34,12 +35,12 @@ type Cluster struct {
 	Resources  v1.ResourceList `json:"resources"`
 }
 
-func ReturnList() (map[string]Cluster, error) {
+func ReturnList() ([]Cluster, error) {
 	// No existing Nodegroups
-	if len(clusterMap) == 0 {
+	if len(clusterList) == 0 {
 		return nil, fmt.Errorf("no clusters found")
 	} else {
-		return clusterMap, nil
+		return clusterList, nil
 	}
 }
 

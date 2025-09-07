@@ -13,7 +13,7 @@ import (
 )
 
 // key is id nodegroup, value is nodegroup
-// var mapNodegroup = make(map[string]types.Nodegroup)
+// TODO change from hardcoded data to a dynamic one
 var mapNodegroup = map[string]types.Nodegroup{
 	"SINGLE": {
 		Id:          "SINGLE",
@@ -34,7 +34,7 @@ var nodeMinInfoList []types.NodeMinInfo = make([]types.NodeMinInfo, 0, 20)
 var nodegroupListMinInfo []types.NodegroupMinInfo = make([]types.NodegroupMinInfo, 0, 5)
 
 // key is id node, value is node
-// var mapNode = make(map[string]types.Node)
+// TODO change from hardcoded data to a dynamic one
 var mapNode = map[string]types.Node{
 	"rmedina": {
 		Id:             "rmedina",
@@ -207,9 +207,7 @@ func ScaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Decode the JSON response
-	// TODO: cluster map, scegli il primo e vai di peering
-	log.Printf("ORA CONTROLLO RISPOSTA LISTA")
-	var clusterList map[string]types.Cluster
+	var clusterList []types.Cluster
 	if err := json.NewDecoder(reply.Body).Decode(&clusterList); err != nil {
 		log.Printf("error decoding JSON: %v", err)
 	}
@@ -226,7 +224,7 @@ func ScaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Errore durante il salvataggio del kubeconfig:", err)
 		return
 	}*/
-	log.Printf("CLUSTER SCELTO")
+	log.Printf("CLUSTER SCELTO: %s", clusterList[0].Name)
 	cmd := exec.Command(
 		"liqoctl", "peer", "--remote-kubeconfig", "/home/rmedina/provider.kubeconfig", "--skip-confirm",
 	)
@@ -268,6 +266,7 @@ func ScaleDownNodegroup(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	nodegroupId := queryParams.Get("nodegroupid")
 	nodeId := queryParams.Get("id")
+	log.Printf("ScaleDownNodegroup CALLED ON: %s", nodeId)
 	cmd := exec.Command(
 		"liqoctl", "unpeer", "--remote-kubeconfig", "/home/rmedina/provider.kubeconfig", "--skip-confirm",
 	)
