@@ -508,7 +508,8 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 // scale-up simulations to predict what would a new node look like if a node group was expanded.
 // Implementation optional: if unimplemented return error code 12 (for `Unimplemented`)
 func (c *cloudProviderServer) NodeGroupTemplateNodeInfo(ctx context.Context, req *protos.NodeGroupTemplateNodeInfoRequest) (*protos.NodeGroupTemplateNodeInfoResponse, error) {
-	log.Printf("INFO templateeeeeeeeeeee")
+	log.Printf("ASKS ABOUT TEMPLATE NODE INFO")
+	//TODO write a rael functions in nodegroup manager to return the real info
 
 	return &protos.NodeGroupTemplateNodeInfoResponse{
 		NodeInfo: &v1.Node{
