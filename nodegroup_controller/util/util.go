@@ -193,7 +193,7 @@ func ScaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send a GET request to the nodegroup controller
-	reply, err := client.Get("https://localhost:9010/clusterlist") // TODO create a parameter
+	reply, err := client.Get("https://localhost:9010/list") // TODO create a parameter
 	if err != nil {
 		log.Printf("failed to execute get query: %v", err)
 	}
@@ -208,17 +208,27 @@ func ScaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
 
 	// Decode the JSON response
 	// TODO: cluster map, scegli il primo e vai di peering
-	var clusterList []types.Cluster
+	log.Printf("ORA CONTROLLO RISPOSTA LISTA")
+	var clusterList map[string]types.Cluster
 	if err := json.NewDecoder(reply.Body).Decode(&clusterList); err != nil {
 		log.Printf("error decoding JSON: %v", err)
 	}
-	log.Printf("NodeGroupNodes: %d lunghezza lista", len(clusterList))
+	log.Printf("NodeGroupNodes: %d lunghezza mappa", len(clusterList))
 
 	// Convert the response to the protos format
 	// QUI invece fai il peering, serve il percorso poichè non lo puoi buttare dentro (o forse si)
-	kubeconfig := clusterList[0].Kubeconfig
+	/*kubeconfig := clusterList[0].Kubeconfig
+	path := "/home/rmedina/kubeconfig1"
+
+	// Scrive il file con permessi 0600 (solo lettura/scrittura per l'utente)
+	erro := os.WriteFile(path, []byte(kubeconfig), 0777)
+	if erro != nil {
+		fmt.Println("Errore durante il salvataggio del kubeconfig:", err)
+		return
+	}*/
+	log.Printf("CLUSTER SCELTO")
 	cmd := exec.Command(
-		"liqoctl", "peer", "--remote-kubeconfig", "/home/rmedina/kubeconfig", "--skip-confirm",
+		"liqoctl", "peer", "--remote-kubeconfig", "/home/rmedina/provider.kubeconfig", "--skip-confirm",
 	)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -259,7 +269,7 @@ func ScaleDownNodegroup(w http.ResponseWriter, r *http.Request) {
 	nodegroupId := queryParams.Get("nodegroupid")
 	nodeId := queryParams.Get("id")
 	cmd := exec.Command(
-		"liqoctl", "unpeer", "--remote-kubeconfig", "/home/rmedina/kubeconfig", "--skip-confirm",
+		"liqoctl", "unpeer", "--remote-kubeconfig", "/home/rmedina/provider.kubeconfig", "--skip-confirm",
 	)
 	output, err := cmd.CombinedOutput()
 	log.Printf("Fine SSH, %s %s", output, err)

@@ -57,5 +57,5 @@ type NodeMinInfo struct {
 type Cluster struct {
 	Name       string          `json:"name"`
 	Kubeconfig string          `json:"kubeconfig"`
-	Resources  v1.ResourceList `json:"resources"` // Number of resources available in the cluster
+	Resources  v1.ResourceList `json:"resources"`
 }
