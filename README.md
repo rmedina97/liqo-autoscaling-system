@@ -7,19 +7,23 @@ This allows a better control on cost, particularly on public cloud providers.
 This repository contains the required components to allow this mechanism to work with Liqo.
 In a nutshell, when a cluster detects a scarsity of resources, it can acquire some more resources from another (remote) cluster, using Liqo, which adds a new (virtual) node to the origin cluster.
 
+<img src="./images/liqo-autoscaling-base.png" alt="POC architecture" width="600"/>
+
 Given the current behavior of the Cluster Autoscaler (CA) mechanism, the main steps are the following (for the _scale out_ operation):
-- The CA detects a lack of resources in the origin cluster.
-- It asks an external component (i.e., the gRPC server in this repository) to add a new node to the cluster.
-- The gRPC server leverages Liqo to establish a new peering with a remote cluster.
-- Once the peering is established, the origin cluster will have a new (virtual) node that summarizes all the resources that are available on the remote cluster.
+- The CA detects a lack of resources in the origin cluster. (1)
+- It asks the provider Liqo (through the gRPC server in this repository) to add a new node to the cluster. (2)
+- Liqo establishes a new peering with a remote cluster. (3-4-5)
+- Once the peering is established, the origin cluster will have a new (virtual) node that summarizes all the resources that are available on the remote cluster. (6)
 - The origin cluster can now use all the resources of the initial nodes, plus the ones made available on the remote cluster through Liqo.
+
+<img src="./images/liqo-autoscaling.png" alt="Scale up procedure" width="600"/>
 
 Currently, due to the PoC nature of this project, the _peering establishment_ and the amount of _resources acquired_ are statically defined.
 Future extensions will allow this project to decide _which_ cluster ask resources to (e.g., based on economic cost), and _how many_ resources have to be acquired.
 
 
 ## Overview 
-This repository consists of two main components: the gRPC server and the node group controller.
+This repository consists of 3 main components: the gRPC server, the node manager and the discovery server.
 
 A new provider can be integrated with the Cluster Autoscaler (CA) in two distinct ways:
 
@@ -29,8 +33,9 @@ A new provider can be integrated with the Cluster Autoscaler (CA) in two distinc
 
 This project follows the second approach. **The gRPC server**, implemented in Go, communicates with the Cluster Autoscaler using Protocol Buffers and interacts with the node group controller over HTTPS.
 
-The **nodegroup controller** is responsible for handling incoming requests from the CA and interacting with the selected cloud provider — in this case, Liqo — to perform operations such as scaling and information retrieval.
+The **node manager** is responsible for handling incoming requests from the CA and interacting with the selected cloud provider — in this case, Liqo — to perform operations such as scaling and information retrieval.
 
+The **discovery server** is responsible for store infos about remote clusters that are willing to share their resources
 ## gRPC server
 
 The gRPC server is currently implemented in a single Go file and defines all functions that may be invoked by the Cluster Autoscaler. Some functions are required, while others are optional. At a minimum, the following functions must be implemented for the CA to operate correctly:
@@ -100,7 +105,7 @@ PricingNodePrice returns a theoretical minimum price of running a node for a giv
 `PricingPodPrice(context.Context, *PricingPodPriceRequest) (*PricingPodPriceResponse, error)`  
 PricingPodPrice returns a theoretical minimum price of running a pod for a given period of time on a perfectly matching machine.
 
-## Nodegroup Controller
+## Node manager
 
 This component is implemented as an HTTPS server that receives requests from the gRPC server and interacts with the configured cloud provider to fulfill them. The implementation is modular, allowing for easy extension.
 
