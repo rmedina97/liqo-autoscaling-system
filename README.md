@@ -1,5 +1,24 @@
-# Draft Guide
+# Kubernetes Cluster Autoscaler for Liqo
 
+The Kubernetes [Cluster Autoscaler project](https://github.com/kubernetes/autoscaler/tree/master/cluster-autoscaler) implements a scaling mechanism that adapts the **size** of the cluster to the current computing demand.
+For instance, when the current cluster does not have enough resources to schedule a new pod, it adds a new node to the cluster (_scale out_), and viceversa for _scale in_ operations (the cluster has an excess of resources so that an existing node can be released).
+This allows a better control on cost, particularly on public cloud providers.
+
+This repository contains the required components to allow this mechanism to work with Liqo.
+In a nutshell, when a cluster detects a scarsity of resources, it can acquire some more resources from another (remote) cluster, using Liqo, which adds a new (virtual) node to the origin cluster.
+
+Given the current behavior of the Cluster Autoscaler (CA) mechanism, the main steps are the following (for the _scale out_ operation):
+- The CA detects a lack of resources in the origin cluster.
+- It asks an external component (i.e., the gRPC server in this repository) to add a new node to the cluster.
+- The gRPC server leverages Liqo to establish a new peering with a remote cluster.
+- Once the peering is established, the origin cluster will have a new (virtual) node that summarizes all the resources that are available on the remote cluster.
+- The origin cluster can now use all the resources of the initial nodes, plus the ones made available on the remote cluster through Liqo.
+
+Currently, due to the PoC nature of this project, the _peering establishment_ and the amount of _resources acquired_ are statically defined.
+Future extensions will allow this project to decide _which_ cluster ask resources to (e.g., based on economic cost), and _how many_ resources have to be acquired.
+
+
+## Overview 
 This repository consists of two main components: the gRPC server and the node group controller.
 
 A new provider can be integrated with the Cluster Autoscaler (CA) in two distinct ways:
