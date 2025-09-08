@@ -292,6 +292,7 @@ func (c *cloudProviderServer) Cleanup(ctx context.Context, req *protos.CleanupRe
 }
 
 // Refresh is called before every main loop and can be used to dynamically update cloud provider state.
+// TODO Make a new calls on nodegroup functions, otherwise will fail after a while
 func (c *cloudProviderServer) Refresh(ctx context.Context, req *protos.RefreshRequest) (*protos.RefreshResponse, error) {
 	//here TODO the real computations
 	return &protos.RefreshResponse{}, nil
@@ -414,29 +415,6 @@ func (c *cloudProviderServer) NodeGroupDeleteNodes(ctx context.Context, req *pro
 	}
 	return &protos.NodeGroupDeleteNodesResponse{}, nil
 }
-
-/*if test == 2 {
-	test = 1
-	log.Printf("DECREASE SIZE of %s NODEGROUP, DELETING NODE %s", req.Id, req.Nodes[0].Name)
-	log.Printf("list size is %d", len(req.Nodes))
-	for i, node := range req.Nodes {
-		log.Printf("Node %d: %s", i, node.Name)
-	}
-	log.Printf("Node fine loop")
-	cmd := exec.Command(
-		"ssh",
-		"-J", "bastion@ssh.crownlabs.polito.it",
-		"crownlabs@10.97.97.14",
-		"liqoctl", "unpeer", "remoto", "--skip-confirm",
-	)
-	output, err := cmd.CombinedOutput()
-	log.Printf("Fine SSH")
-	if err != nil {
-		log.Printf("Error during SSH: %v", err)
-		//return nil,err
-	}
-	log.Printf(" %s", output)
-}*/
 
 // NodeGroupDecreaseTargetSize decreases the target size of the node group. This function
 // doesn't permit to delete any existing node and can be used only to reduce the request

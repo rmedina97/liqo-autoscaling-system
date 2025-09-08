@@ -211,20 +211,7 @@ func ScaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(reply.Body).Decode(&clusterList); err != nil {
 		log.Printf("error decoding JSON: %v", err)
 	}
-	log.Printf("NodeGroupNodes: %d lunghezza mappa", len(clusterList))
-
-	// Convert the response to the protos format
-	// QUI invece fai il peering, serve il percorso poichè non lo puoi buttare dentro (o forse si)
-	/*kubeconfig := clusterList[0].Kubeconfig
-	path := "/home/rmedina/kubeconfig1"
-
-	// Scrive il file con permessi 0600 (solo lettura/scrittura per l'utente)
-	erro := os.WriteFile(path, []byte(kubeconfig), 0777)
-	if erro != nil {
-		fmt.Println("Errore durante il salvataggio del kubeconfig:", err)
-		return
-	}*/
-	log.Printf("CLUSTER SCELTO: %s", clusterList[0].Name)
+	log.Printf("Cluster chosen: %s", clusterList[0].Name)
 	cmd := exec.Command(
 		"liqoctl", "peer", "--remote-kubeconfig", "/home/rmedina/provider.kubeconfig", "--skip-confirm",
 	)
@@ -240,25 +227,6 @@ func ScaleUpNodegroup(w http.ResponseWriter, r *http.Request) {
 	mapNodegroup[nodegroupId] = nodegroup
 	WriteGetResponse(w, http.StatusOK, nil, "")
 
-	/*queryParams := r.URL.Query()
-	//numberToAdd := queryParams.Get("deltaInt")
-	log.Printf("ScaleUpNodegroup called with query params: %v", queryParams)
-	nodegroupId := queryParams.Get("id")
-	//"ssh","rmedina@192.168.11.114",
-	cmd := exec.Command(
-		"liqoctl", "peer", "--remote-kubeconfig", "/home/rmedina/kubeconfig", "--skip-confirm",
-	)
-	output, err:= cmd.CombinedOutput()
-	if err != nil {
-		log.Printf("Error during SSH:%v", err)
-	}
-	log.Printf("Output: %s ", output)
-	mapNode["remote"] = types.Node{Id: "remote", NodegroupId: "SINGLE", InstanceStatus: types.InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
-	nodegroup := mapNodegroup[nodegroupId]
-	nodegroup.CurrentSize++
-	nodegroup.Nodes = append(nodegroup.Nodes, "remote")
-	mapNodegroup[nodegroupId] = nodegroup
-	WriteGetResponse(w, http.StatusOK, nil, "")*/
 }
 
 // scaleDownNodegroup scale down the nodegroup killing a certain node
@@ -266,7 +234,7 @@ func ScaleDownNodegroup(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	nodegroupId := queryParams.Get("nodegroupid")
 	nodeId := queryParams.Get("id")
-	log.Printf("ScaleDownNodegroup CALLED ON: %s", nodeId)
+	log.Printf("ScaleDownNodegroup called on: %s", nodegroupId)
 	cmd := exec.Command(
 		"liqoctl", "unpeer", "--remote-kubeconfig", "/home/rmedina/provider.kubeconfig", "--skip-confirm",
 	)
