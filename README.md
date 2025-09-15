@@ -7,16 +7,18 @@ This allows a better control on cost, particularly on public cloud providers.
 This repository contains the required components to allow this mechanism to work with Liqo.
 In a nutshell, when a cluster detects a scarsity of resources, it can acquire some more resources from another (remote) cluster, using Liqo, which adds a new (virtual) node to the origin cluster.
 
-<img src="./images/liqo-autoscaling-base.png" alt="POC architecture" width="600"/>
+<img src="./images/las-scaleup.png" alt="POC architecture" width="600"/>
 
 Given the current behavior of the Cluster Autoscaler (CA) mechanism, the main steps are the following (for the _scale out_ operation):
-- The CA detects a lack of resources in the origin cluster. (1)
-- It asks the provider Liqo (through the gRPC server in this repository) to add a new node to the cluster. (2)
-- Liqo establishes a new peering with a remote cluster. (3-4-5)
-- Once the peering is established, the origin cluster will have a new (virtual) node that summarizes all the resources that are available on the remote cluster. (6)
-- The origin cluster can now use all the resources of the initial nodes, plus the ones made available on the remote cluster through Liqo.
+- The CA detects a lack of resources in the origin cluster (1)
+- It asks the provider Liqo (through the gRPC server in this repository) to add a new node to the cluster (2-3)
+- Node manager obtain infos about remote cluster that are willing to share resources (4-5)
+- Node manager chooses the remote cluster that satisfies the autoscaler request (6) 
+- Liqo establishes a new peering with a remote cluster (7)
+- Node manager sends the result back to the autoscaler (8-9)
+- Once the peering is established, the origin cluster will have a new (virtual) node that summarizes all the resources that are available on the remote cluster
+- The origin cluster can now use all the resources of the initial nodes, plus the ones made available on the remote cluster through Liqo
 
-<img src="./images/liqo-autoscaling.png" alt="Scale up procedure" width="600"/>
 
 Currently, due to the PoC nature of this project, the _peering establishment_ and the amount of _resources acquired_ are statically defined.
 Future extensions will allow this project to decide _which_ cluster ask resources to (e.g., based on economic cost), and _how many_ resources have to be acquired.
@@ -104,6 +106,66 @@ PricingNodePrice returns a theoretical minimum price of running a node for a giv
 3. **PricingPodPrice**  
 `PricingPodPrice(context.Context, *PricingPodPriceRequest) (*PricingPodPriceResponse, error)`  
 PricingPodPrice returns a theoretical minimum price of running a pod for a given period of time on a perfectly matching machine.
+
+## Node manager
+
+This component is implemented as an HTTPS server that receives requests from the gRPC server and interacts with the configured cloud provider to fulfill them. The implementation is modular, allowing for easy extension.
+
+Structure overview:
+
+1. `nodegroup_controller.go`   
+Main entry point that defines the HTTPS server and can be extended to handle additional request types.
+
+2. `handler/`   
+Contains the request handlers. Each handler dispatches the request to the appropriate processing chain.NOTA DEVI FARE IN MODO CHE LA CONOSCENZA DEL LINGUAGGIO HTTP FINISCA QUI
+
+3. `util/`   
+Provides the basic functions used across handlers.
+
+4. `types/`  
+Defines custom data types required for processing and responding to requests.
+
+### `nodegroup_controller.go`
+
+Contains the server https that will accept and manage the arriving requests, sending them to the correct handler
+
+### `handler/`
+
+Contains the possible various handler to handle different types of request. An handler is a big switch, to use the direct function and at the same time need to decapsulate the request from the http language
+
+1. **HandleConnection**
+`HandleConnection(w http.ResponseWriter, r *http.Request)`  
+General handler that manages all the request coming from the server gRPC 
+
+### `util/`
+
+the list of functions to be used to do the actual computation and return the answer
+
+1. CreateNodegroup(w http.ResponseWriter, r *http.Request)
+DeleteNodegroup(w http.ResponseWriter, r *http.Request)
+
+2.ScaleUpNodegroup(w http.ResponseWriter, r *http.Request)
+ScaleDownNodegroup(w http.ResponseWriter, r *http.Request)
+
+3.newClient() (*http.Client, error)
+
+4.WriteGetResponse(w http.ResponseWriter, statusCode int, data any, errMsg string)
+
+5.GetNodegroupNodes(w http.ResponseWriter, r *http.Request)
+
+6.GetCurrentSize(w http.ResponseWriter, r *http.Request)
+
+7.GetNodegroupForNode(w http.ResponseWriter, r *http.Request)
+
+8.GetAllNodegroups(w http.ResponseWriter)
+
+9.
+
+10
+
+### `types/`
+
+Custom data structure to reply with the right amount of info to the CA requests
 
 ## Node manager
 
