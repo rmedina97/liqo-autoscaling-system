@@ -15,7 +15,7 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 
 		// Send all the possible remote clusters
 		result, err := fun.ReturnList()
-		log.Printf("DISCOVERY MANDA LISTA ")
+		log.Printf("Sent list to the Node Manager")
 		WriteGetResponse(w, result, err)
 
 	case "/update":

@@ -234,7 +234,8 @@ func ScaleDownNodegroup(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	nodegroupId := queryParams.Get("nodegroupid")
 	nodeId := queryParams.Get("id")
-	log.Printf("ScaleDownNodegroup called on: %s", nodegroupId)
+	//log.Printf("ScaleDownNodegroup called on first: %s", nodeId)
+	nodeId = "remote"
 	cmd := exec.Command(
 		"liqoctl", "unpeer", "--remote-kubeconfig", "/home/rmedina/provider.kubeconfig", "--skip-confirm",
 	)
