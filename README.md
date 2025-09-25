@@ -38,6 +38,7 @@ This project follows the second approach. **The gRPC server**, implemented in Go
 The **node manager** is responsible for handling incoming requests from the CA and interacting with the selected cloud provider — in this case, Liqo — to perform operations such as scaling and information retrieval.
 
 The **discovery server** is responsible for store infos about remote clusters that are willing to share their resources
+
 ## gRPC server
 
 The gRPC server is currently implemented in a single Go file and defines all functions that may be invoked by the Cluster Autoscaler. Some functions are required, while others are optional. At a minimum, the following functions must be implemented for the CA to operate correctly:
@@ -117,7 +118,7 @@ Structure overview:
 Main entry point that defines the HTTPS server and can be extended to handle additional request types.
 
 2. `handler/`   
-Contains the request handlers. Each handler dispatches the request to the appropriate processing chain.NOTA DEVI FARE IN MODO CHE LA CONOSCENZA DEL LINGUAGGIO HTTP FINISCA QUI
+Contains the request handlers. Each handler unwraps the HTTP messages and dispatches the request to the appropriate processing chain.
 
 3. `util/`   
 Provides the basic functions used across handlers.
@@ -125,78 +126,22 @@ Provides the basic functions used across handlers.
 4. `types/`  
 Defines custom data types required for processing and responding to requests.
 
-### `nodegroup_controller.go`
 
-Contains the server https that will accept and manage the arriving requests, sending them to the correct handler
-
-### `handler/`
-
-Contains the possible various handler to handle different types of request. An handler is a big switch, to use the direct function and at the same time need to decapsulate the request from the http language
-
-1. **HandleConnection**
-`HandleConnection(w http.ResponseWriter, r *http.Request)`  
-General handler that manages all the request coming from the server gRPC 
-
-### `util/`
-
-the list of functions to be used to do the actual computation and return the answer
-
-1. CreateNodegroup(w http.ResponseWriter, r *http.Request)
-DeleteNodegroup(w http.ResponseWriter, r *http.Request)
-
-2.ScaleUpNodegroup(w http.ResponseWriter, r *http.Request)
-ScaleDownNodegroup(w http.ResponseWriter, r *http.Request)
-
-3.newClient() (*http.Client, error)
-
-4.WriteGetResponse(w http.ResponseWriter, statusCode int, data any, errMsg string)
-
-5.GetNodegroupNodes(w http.ResponseWriter, r *http.Request)
-
-6.GetCurrentSize(w http.ResponseWriter, r *http.Request)
-
-7.GetNodegroupForNode(w http.ResponseWriter, r *http.Request)
-
-8.GetAllNodegroups(w http.ResponseWriter)
-
-9.
-
-10
-
-### `types/`
-
-Custom data structure to reply with the right amount of info to the CA requests
-
-## Node manager
+## Discovery server
 
 This component is implemented as an HTTPS server that receives requests from the gRPC server and interacts with the configured cloud provider to fulfill them. The implementation is modular, allowing for easy extension.
 
 Structure overview:
 
-1. `nodegroup_controller.go`   
+1. `discovery.go`   
 Main entry point that defines the HTTPS server and can be extended to handle additional request types.
 
-2. `handler/`   
-Contains the request handlers. Each handler dispatches the request to the appropriate processing chain.NOTA DEVI FARE IN MODO CHE LA CONOSCENZA DEL LINGUAGGIO HTTP FINISCA QUI
+2. `handlers/`   
+Contains the request handlers. Each handler unwraps the HTTP messages and dispatches the request to the appropriate processing chain.
 
-3. `util/`   
+3. `functions/`   
 Provides the basic functions used across handlers.
 
-4. `types/`  
-Defines custom data types required for processing and responding to requests.
+4. `database/`  
+Contains the Database (to be implemented).
 
-### `nodegroup_controller.go`
-
-Contains the server https that will accept and manage the arriving requests, sending them to the correct handler
-
-### `handler/`
-
-Contains the possible various handler to handle different types of request. An handler is a big switch, to use the direct function and at the same time need to decapsulate the request from the http language
-
-### `util/`
-
-the list of functions to be used to do the actual computation and return the answer
-
-### `types/`
-
-Custom data structure to reply with the right amount of info to the CA requests

@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	types "nodegroupController/types"
 	util "nodegroupController/util"
 )
 
@@ -17,54 +20,101 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 	case "/nodegroup":
 
 		// Get all the nodegroup
-		util.GetAllNodegroups(w)
+		result, err := util.GetAllNodegroups()
+		WriteGetResponse(w, result, err)
 
 	case "/nodegroup/ownership":
 
 		// Get the nodegroup of a specific node
-		util.GetNodegroupForNode(w, r)
+		queryParams := r.URL.Query()
+		id := queryParams.Get("id")
+		result, err := util.GetNodegroupForNode(id)
+		WriteGetResponse(w, result, err)
 
 	case "/nodegroup/current-size":
 
 		// Get the current size of a specific nodegroup
-		util.GetCurrentSize(w, r)
+		queryParams := r.URL.Query()
+		id := queryParams.Get("id")
+		result, err := util.GetCurrentSize(id)
+		WriteGetResponse(w, result, err)
 
 	case "/gpu/label":
 
-		//TODO CRUD functions for gpu label or a search
-		util.WriteGetResponse(w, http.StatusOK, gpuLabel, "")
+		//TODO Design required to search
+		WriteGetResponse(w, gpuLabel, nil)
 
 	case "/gpu/types":
 
-		//TODO CRUD functions for gpu label or a search
-		util.WriteGetResponse(w, http.StatusOK, gpuLabelsList, "")
+		//TODO Design required to search
+		WriteGetResponse(w, gpuLabelsList, nil)
 
 	case "/nodegroup/nodes":
 
 		// Get all the nodes of a nodegroup
-		util.GetNodegroupNodes(w, r)
+		queryParams := r.URL.Query()
+		id := queryParams.Get("id")
+		result, err := util.GetNodegroupNodes(id)
+		WriteGetResponse(w, result, err)
 
 	case "/nodegroup/create":
 
 		// Create a new nodegroup
-		util.CreateNodegroup(w, r)
+		var newNodegroup types.Nodegroup
+		if err := json.NewDecoder(r.Body).Decode(&newNodegroup); err != nil {
+			http.Error(w, fmt.Sprintf("Errore decoding JSON: %v", err), http.StatusBadRequest)
+			WriteGetResponse(w, nil, err)
+			return
+		}
+		result, err := util.CreateNodegroup(newNodegroup)
+		WriteGetResponse(w, result, err)
 
 	case "/nodegroup/destroy":
 
 		// Delete the target nodegroup
-		util.DeleteNodegroup(w, r)
+		queryParams := r.URL.Query()
+		id := queryParams.Get("id")
+		result, err := util.DeleteNodegroup(id)
+		WriteGetResponse(w, result, err)
 
 	case "/nodegroup/scaleup":
 
 		// Scale up the nodegroup of a certain amount
-		util.ScaleUpNodegroup(w, r)
+		queryParams := r.URL.Query()
+		id := queryParams.Get("id")
+		result, err := util.ScaleUpNodegroup(id)
+		WriteGetResponse(w, result, err)
 
 	case "/nodegroup/scaledown":
 
 		// Scale down the nodegroup killing a certain node
-		util.ScaleDownNodegroup(w, r)
+		queryParams := r.URL.Query()
+		nodegroupId := queryParams.Get("nodegroupid")
+		nodeId := queryParams.Get("id")
+		util.ScaleDownNodegroup(nodegroupId, nodeId)
 
 	default:
 		log.Printf("wrong request")
+	}
+}
+
+// WriteGetResponse write the response of a get request
+// TODO Design decision required to determine the response code
+func WriteGetResponse(w http.ResponseWriter, data any, err error) {
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if data == nil {
+		http.Error(w, "No data found", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+
+	if encodeErr := json.NewEncoder(w).Encode(data); encodeErr != nil {
+		http.Error(w, fmt.Sprintf("Errore encoding JSON: %v", encodeErr), http.StatusInternalServerError)
 	}
 }
