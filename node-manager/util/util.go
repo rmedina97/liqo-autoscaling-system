@@ -3,6 +3,7 @@ package util
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -223,7 +224,7 @@ func GetNodegroupNodes(id string) (*[]types.NodeMinInfo, error) {
 func CreateNodegroup(newNodegroup types.Nodegroup) (success bool, err error) {
 
 	if _, exists := mapNodegroup[newNodegroup.Id]; exists {
-		return false, fmt.Errorf("Nodegroup already exists")
+		return false, fmt.Errorf("nodegroup already exists")
 	}
 	mapNodegroup[newNodegroup.Id] = newNodegroup
 	// TODO check if we need a lock on nodegroupiscached for the get all nodegroups
@@ -261,7 +262,7 @@ func CreateNodegroup(newNodegroup types.Nodegroup) (success bool, err error) {
 func DeleteNodegroup(nodegroupId string) (success bool, err error) {
 
 	if _, exists := mapNodegroup[nodegroupId]; !exists {
-		return false, fmt.Errorf("Nodegroup not found")
+		return false, fmt.Errorf("nodegroup not found")
 	}
 	delete(mapNodegroup, nodegroupId)
 	// Remove the nodegroup from the list
@@ -333,10 +334,8 @@ func DeleteNodegroup(nodegroupId string) (success bool, err error) {
 // scaleUpNodegroup scale up the nodegroup of a certain amount
 func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 
-	// TODO implement https server that send resources needed
-
 	//numberToAdd := queryParams.Get("deltaInt")
-	log.Printf("ScaleUpNodegroup called with query params: %d", nodegroupId)
+	log.Printf("ScaleUpNodegroup called with query params: %s", nodegroupId)
 
 	client, err := newClient()
 	if err != nil {
@@ -363,8 +362,34 @@ func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 		log.Printf("error decoding JSON: %v", err)
 	}
 	log.Printf("Cluster chosen: %s", clusterList[0].Name)
+	// -----------------------------------------
+	// Decodifica
+	kubeconfigBytes, err := base64.StdEncoding.DecodeString(clusterList[0].Kubeconfig)
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("preso remote ")
+
+	// Crea file temporaneo
+	tmpFile, err := os.CreateTemp("", "kubeconfig-*.yaml")
+	if err != nil {
+		panic(err)
+	}
+
+	defer os.Remove(tmpFile.Name())
+
+	// Scrive il contenuto
+	if _, err := tmpFile.Write(kubeconfigBytes); err != nil {
+		panic(err)
+	}
+	tmpFile.Close()
+
+	// Ottieni il path
+	kubeconfigPath := tmpFile.Name()
+	fmt.Println("Kubeconfig salvato in:", kubeconfigPath)
+	// -----------------------------------------
 	cmd := exec.Command(
-		"liqoctl", "peer", "--remote-kubeconfig", "/home/rmedina/provider.kubeconfig", "--skip-confirm",
+		"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--skip-confirm",
 	)
 	output, err := cmd.CombinedOutput()
 	if err != nil {

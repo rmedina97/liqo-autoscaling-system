@@ -90,7 +90,7 @@ NodeGroupNodes returns a list of all nodes that belong to this node group.
 12. **NodeGroupTemplateNodeInfo**  
 `NodeGroupTemplateNodeInfo(context.Context, *NodeGroupTemplateNodeInfoRequest) (*NodeGroupTemplateNodeInfoResponse, error)`  
 NodeGroupTemplateNodeInfo returns a structure of an empty (as if just started) node, with all of the labels, capacity and allocatable information. This will be used in scale-up simulations to predict what would a new node look like if a node group was expanded.  
->**NOTE** This is setted as optional, but without a template cluster autoscaler doesn't do any scaling up operation.
+>**NOTE** This is marked as optional, but without a template cluster autoscaler doesn't do any scaling up operation.
 
 ### Optional methods
 
