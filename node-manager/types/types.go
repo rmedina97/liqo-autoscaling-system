@@ -67,6 +67,7 @@ type NodegroupTemplate struct {
 	NodegroupId string            `json:"nodegroupId"`
 	Resources   ResourceRange     `json:"resources"`
 	Labels      map[string]string `json:"labels"`
+	Cost        float64           `json:"cost"`
 }
 
 type ResourceRange struct {

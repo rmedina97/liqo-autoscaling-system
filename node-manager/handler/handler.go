@@ -101,6 +101,14 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 		result, err := util.GetTemplateNodegroup(nodegroupId)
 		WriteGetResponse(w, result, err)
 
+	case "/nodegroup/price":
+
+		// Get all the nodegroup
+		queryParams := r.URL.Query()
+		nodegroupId := queryParams.Get("id")
+		result, err := util.GetPriceNodegroup(nodegroupId)
+		WriteGetResponse(w, result, err)
+
 	default:
 		log.Printf("wrong request")
 	}

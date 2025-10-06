@@ -207,8 +207,42 @@ func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.
 // a given period of time on a perfectly matching machine.
 // Implementation optional: if unimplemented return error code 12 (for `Unimplemented`)
 func (c *cloudProviderServer) PricingNodePrice(ctx context.Context, req *protos.PricingNodePriceRequest) (*protos.PricingNodePriceResponse, error) {
+
 	//here TODO the real computations
-	return nil, status.Error(codes.Unimplemented, "function PricingNodePrice is Unimplemented")
+	client, err := newClient()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a client: %v", err)
+	}
+
+	// Take the parameter
+	//TODO use name or provider id? Liqo 0.10 non assegna Provider ID
+	nodeId := req.Node.Name
+	url := fmt.Sprintf("https://localhost:9009/nodegroup/nodeprice?id=%s", nodeId)
+
+	// Send a GET request to the nodegroup controller
+	reply, err := client.Get(url) // TODO create a better parameter, maybe using something more complex like DefaultClient
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute get query: %v", err)
+	}
+	defer reply.Body.Close()
+
+	// Check the response status code
+	if reply.StatusCode == http.StatusNotFound {
+		return &protos.PricingNodePriceResponse{}, nil //TODO probably there is a specific error
+	} else if reply.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server responded with status %d", reply.StatusCode)
+	}
+
+	// Decode the JSON response
+	var price float64
+	if err := json.NewDecoder(reply.Body).Decode(&price); err != nil {
+		return nil, fmt.Errorf("error decoding JSON: %v", err)
+	}
+
+	return &protos.PricingNodePriceResponse{
+		Price: price,
+	}, nil
+	//return nil, status.Error(codes.Unimplemented, "function PricingNodePrice is Unimplemented")
 }
 
 // PricingPodPrice returns a theoretical minimum price of running a pod for a given
