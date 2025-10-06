@@ -60,6 +60,7 @@ type Cluster struct {
 	Kubeconfig string            `json:"kubeconfig"`
 	Resources  v1.ResourceList   `json:"resources"`
 	Labels     map[string]string `json:"labels"`
+	HasNat     bool              `json:"hasNat"`
 }
 
 type NodegroupTemplate struct {

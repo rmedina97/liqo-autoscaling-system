@@ -24,6 +24,7 @@ var clusterList = []Cluster{
 			"city":     "paris",
 			"hasGPU":   "true",
 		},
+		HasNat: false,
 	},
 	{
 		Name:       "remote2",
@@ -40,6 +41,7 @@ var clusterList = []Cluster{
 			"city":     "turin",
 			"hasGPU":   "false",
 		},
+		HasNat: false,
 	},
 }
 
@@ -48,6 +50,7 @@ type Cluster struct {
 	Kubeconfig string            `json:"kubeconfig"`
 	Resources  v1.ResourceList   `json:"resources"`
 	Labels     map[string]string `json:"labels"`
+	HasNat     bool              `json:"hasNat"`
 }
 
 func ReturnList() ([]Cluster, error) {

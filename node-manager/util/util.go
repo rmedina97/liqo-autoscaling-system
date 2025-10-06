@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	types "nodegroupController/types"
 	"os"
 	"os/exec"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 // key is id nodegroup, value is nodegroup
@@ -442,6 +444,30 @@ func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 	}
 	log.Printf("preso new cluster %s", clusterchosen.Name)
 
+	cfg, err := clientcmd.Load(kubeconfigBytes)
+	if err != nil {
+		panic(err)
+	}
+
+	ctx := cfg.Contexts[cfg.CurrentContext]
+	if ctx == nil {
+		panic("context corrente non trovato")
+	}
+
+	cluster := cfg.Clusters[ctx.Cluster]
+	if cluster == nil {
+		panic("cluster non trovato")
+	}
+
+	// Parse URL del server
+	u, err := url.Parse(cluster.Server)
+	if err != nil {
+		panic(err)
+	}
+
+	ip := u.Hostname()
+	fmt.Println("IP estratto dal kubeconfig:", ip)
+
 	// Crea file temporaneo
 	tmpFile, err := os.CreateTemp("", "kubeconfig-*.yaml")
 	if err != nil {
@@ -460,14 +486,28 @@ func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 	kubeconfigPath := tmpFile.Name()
 	fmt.Println("Kubeconfig salvato in:", kubeconfigPath)
 	// -----------------------------------------
-	cmd := exec.Command(
-		"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--skip-confirm",
-	)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Printf("Error during SSH:%v", err)
+	if !clusterchosen.HasNat {
+
+		cmd := exec.Command(
+			"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--skip-confirm",
+		)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Printf("Error during SSH:%v", err)
+		}
+		log.Printf("Output: %s ", output)
+
+	} else {
+		cmd := exec.Command(
+			"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--api-server-url", ip, "--skip-confirm",
+		)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Printf("Error during SSH:%v", err)
+		}
+		log.Printf("Output: %s ", output)
 	}
-	log.Printf("Output: %s ", output)
+
 	mapNode[clusterchosen.Name] = types.Node{Id: clusterchosen.Name, NodegroupId: nodegroupId, InstanceStatus: types.InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
 	nodegroup := mapNodegroup[nodegroupId]
 	nodegroup.CurrentSize++
