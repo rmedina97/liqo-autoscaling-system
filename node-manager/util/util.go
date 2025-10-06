@@ -11,17 +11,27 @@ import (
 	types "nodegroupController/types"
 	"os"
 	"os/exec"
+
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // key is id nodegroup, value is nodegroup
 // TODO change from hardcoded data to a dynamic one
 var mapNodegroup = map[string]types.Nodegroup{
-	"SINGLE": {
-		Id:          "SINGLE",
+	"STANDARD": {
+		Id:          "STANDARD",
 		MaxSize:     3,
 		MinSize:     1,
 		CurrentSize: 1,
 		Nodes:       []string{"rmedina"},
+	},
+	"GPU": {
+		Id:          "GPU",
+		MaxSize:     3,
+		MinSize:     0,
+		CurrentSize: 0,
+		Nodes:       []string{},
 	},
 }
 
@@ -39,8 +49,56 @@ var nodegroupListMinInfo []types.NodegroupMinInfo = make([]types.NodegroupMinInf
 var mapNode = map[string]types.Node{
 	"rmedina": {
 		Id:             "rmedina",
-		NodegroupId:    "SINGLE",
+		NodegroupId:    "STANDARD",
 		InstanceStatus: types.InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""},
+	},
+}
+
+// Template map
+var mapNodegroupTemplate = map[string]types.NodegroupTemplate{
+	"GPU": {
+		NodegroupId: "GPU",
+		Resources: types.ResourceRange{
+			Min: v1.ResourceList{
+				v1.ResourceCPU:    *resource.NewQuantity(4000, resource.DecimalSI),
+				v1.ResourceMemory: *resource.NewQuantity(4096, resource.DecimalSI),
+				v1.ResourcePods:   *resource.NewQuantity(110, resource.DecimalSI),
+				"nvidia.com/gpu":  *resource.NewQuantity(1, resource.DecimalSI),
+			},
+			Max: v1.ResourceList{
+				v1.ResourceCPU:    *resource.NewQuantity(7000, resource.DecimalSI),
+				v1.ResourceMemory: *resource.NewQuantity(8192, resource.DecimalSI),
+				v1.ResourcePods:   *resource.NewQuantity(110, resource.DecimalSI),
+				"nvidia.com/gpu":  *resource.NewQuantity(4, resource.DecimalSI),
+			},
+		},
+		Labels: map[string]string{
+			"country":  "france",
+			"provider": "liqo",
+			"city":     "paris",
+		},
+	},
+	"STANDARD": {
+		NodegroupId: "STANDARD",
+		Resources: types.ResourceRange{
+			Min: v1.ResourceList{
+				v1.ResourceCPU:    *resource.NewQuantity(1500, resource.DecimalSI),
+				v1.ResourceMemory: *resource.NewQuantity(1024, resource.DecimalSI),
+				v1.ResourcePods:   *resource.NewQuantity(110, resource.DecimalSI),
+				"nvidia.com/gpu":  *resource.NewQuantity(0, resource.DecimalSI),
+			},
+			Max: v1.ResourceList{
+				v1.ResourceCPU:    *resource.NewQuantity(3000, resource.DecimalSI),
+				v1.ResourceMemory: *resource.NewQuantity(3072, resource.DecimalSI),
+				v1.ResourcePods:   *resource.NewQuantity(110, resource.DecimalSI),
+				"nvidia.com/gpu":  *resource.NewQuantity(0, resource.DecimalSI),
+			},
+		},
+		Labels: map[string]string{
+			"country":  "italy",
+			"provider": "liqo",
+			"city":     "turin",
+		},
 	},
 }
 
@@ -361,14 +419,28 @@ func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 	if err := json.NewDecoder(reply.Body).Decode(&clusterList); err != nil {
 		log.Printf("error decoding JSON: %v", err)
 	}
-	log.Printf("Cluster chosen: %s", clusterList[0].Name)
+
+	//divide in nodegroup
+	clusterchosen := types.Cluster{}
+	for _, c := range clusterList {
+		if c.Labels["hasGPU"] == "true" && nodegroupId == "GPU" {
+			clusterchosen = c
+			break
+		}
+		if c.Labels["hasGPU"] == "false" && nodegroupId == "STANDARD" {
+			clusterchosen = c
+			break
+		}
+	}
+
+	log.Printf("Cluster chosen: %s", clusterchosen.Name)
 	// -----------------------------------------
 	// Decodifica
-	kubeconfigBytes, err := base64.StdEncoding.DecodeString(clusterList[0].Kubeconfig)
+	kubeconfigBytes, err := base64.StdEncoding.DecodeString(clusterchosen.Kubeconfig)
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("preso remote ")
+	log.Printf("preso new cluster %s", clusterchosen.Name)
 
 	// Crea file temporaneo
 	tmpFile, err := os.CreateTemp("", "kubeconfig-*.yaml")
@@ -396,10 +468,10 @@ func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 		log.Printf("Error during SSH:%v", err)
 	}
 	log.Printf("Output: %s ", output)
-	mapNode["remote"] = types.Node{Id: "remote", NodegroupId: "SINGLE", InstanceStatus: types.InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
+	mapNode[clusterchosen.Name] = types.Node{Id: clusterchosen.Name, NodegroupId: nodegroupId, InstanceStatus: types.InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
 	nodegroup := mapNodegroup[nodegroupId]
 	nodegroup.CurrentSize++
-	nodegroup.Nodes = append(nodegroup.Nodes, "remote")
+	nodegroup.Nodes = append(nodegroup.Nodes, clusterchosen.Name)
 	mapNodegroup[nodegroupId] = nodegroup
 	return true, nil
 
@@ -436,10 +508,72 @@ func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 // scaleDownNodegroup scale down the nodegroup killing a certain node
 func ScaleDownNodegroup(nodegroupId string, nodeId string) (success bool, err error) {
 
+	// TODO Sent request to discovery server for only the kubeconfig of that node
+	client, err := newClient()
+	if err != nil {
+		log.Printf("failed to create a client: %v", err)
+	}
+
+	// Send a GET request to the discovery server
+	reply, err := client.Get("https://localhost:9010/list") // TODO create a parameter
+	if err != nil {
+		log.Printf("failed to execute get query: %v", err)
+	}
+	defer reply.Body.Close()
+
+	// Check the response status code
+	if reply.StatusCode == http.StatusNotFound {
+		log.Printf("remote cluster not found")
+	} else if reply.StatusCode != http.StatusOK {
+		log.Printf("server responded with status %d", reply.StatusCode)
+	}
+
+	// Decode the JSON response
+	var clusterList []types.Cluster
+	if err := json.NewDecoder(reply.Body).Decode(&clusterList); err != nil {
+		log.Printf("error decoding JSON: %v", err)
+	}
+
+	//divide in nodegroup
+	clusterchosen := types.Cluster{}
+	for _, c := range clusterList {
+		if c.Name == nodeId {
+			clusterchosen = c
+			break
+		}
+	}
+
+	log.Printf("Cluster chosen: %s", clusterchosen.Name)
+	// -----------------------------------------
+	// Decodifica
+	kubeconfigBytes, err := base64.StdEncoding.DecodeString(clusterchosen.Kubeconfig)
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("preso cluster %s", clusterchosen.Name)
+
+	// Crea file temporaneo
+	tmpFile, err := os.CreateTemp("", "kubeconfig-*.yaml")
+	if err != nil {
+		panic(err)
+	}
+
+	defer os.Remove(tmpFile.Name())
+
+	// Scrive il contenuto
+	if _, err := tmpFile.Write(kubeconfigBytes); err != nil {
+		panic(err)
+	}
+	tmpFile.Close()
+
+	// Ottieni il path
+	kubeconfigPath := tmpFile.Name()
+	fmt.Println("Kubeconfig salvato in:", kubeconfigPath)
+	// -----------------------------------------
+
 	//log.Printf("ScaleDownNodegroup called on first: %s", nodeId)
-	nodeId = "remote"
 	cmd := exec.Command(
-		"liqoctl", "unpeer", "--remote-kubeconfig", "/home/rmedina/provider.kubeconfig", "--skip-confirm",
+		"liqoctl", "unpeer", "--remote-kubeconfig", kubeconfigPath, "--skip-confirm",
 	)
 	output, err := cmd.CombinedOutput()
 	log.Printf("Fine SSH, %s %s", output, err)
@@ -457,6 +591,19 @@ func ScaleDownNodegroup(nodegroupId string, nodeId string) (success bool, err er
 	mapNodegroup[nodegroupId] = nodegroup
 	delete(mapNode, nodeId)
 	return true, nil
+}
+
+// // getTemplateNodegroup get the template of a nodegroup
+func GetTemplateNodegroup(id string) (*types.NodegroupTemplate, error) {
+
+	// No existing Nodegrouptemplate
+	log.Printf("GetTemplateNodegroup called with id: %s", id)
+	template, exist := mapNodegroupTemplate[id]
+	if !exist {
+		log.Printf("Nodegroup template not found")
+		return nil, nil //TODO change with error
+	}
+	return &template, nil
 }
 
 // Create a new client

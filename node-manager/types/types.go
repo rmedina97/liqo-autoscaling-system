@@ -15,18 +15,19 @@ type InstanceStatus struct {
 }
 
 type Node struct {
-	Id          string `json:"id"`
-	NodegroupId string `json:"nodegroupId"`
-	//TODO other info
-	InstanceStatus InstanceStatus `json:"--"`
+	Id             string            `json:"id"`
+	NodegroupId    string            `json:"nodegroupId"`
+	Resources      v1.ResourceList   `json:"resources"`
+	InstanceStatus InstanceStatus    `json:"--"`
+	Labels         map[string]string `json:"labels"`
 }
 
 type Nodegroup struct {
 	Id          string   `json:"id"`
-	CurrentSize int32    `json:"currentSize"` //TODO struct only with the required field
+	CurrentSize int32    `json:"currentSize"`
 	MaxSize     int32    `json:"maxSize"`
 	MinSize     int32    `json:"minSize"`
-	Nodes       []string `json:"nodes"` //TODO maybe put only ids of the nodes?
+	Nodes       []string `json:"nodes"`
 }
 
 // HERE START CUSTOM OBJECTS TO ADHERE GRPC TYPES
@@ -55,7 +56,19 @@ type NodeMinInfo struct {
 //var nodeList []Node = make([]Node, 0, 20)
 
 type Cluster struct {
-	Name       string          `json:"name"`
-	Kubeconfig string          `json:"kubeconfig"`
-	Resources  v1.ResourceList `json:"resources"`
+	Name       string            `json:"name"`
+	Kubeconfig string            `json:"kubeconfig"`
+	Resources  v1.ResourceList   `json:"resources"`
+	Labels     map[string]string `json:"labels"`
+}
+
+type NodegroupTemplate struct {
+	NodegroupId string            `json:"nodegroupId"`
+	Resources   ResourceRange     `json:"resources"`
+	Labels      map[string]string `json:"labels"`
+}
+
+type ResourceRange struct {
+	Min v1.ResourceList `json:"min"`
+	Max v1.ResourceList `json:"max"`
 }

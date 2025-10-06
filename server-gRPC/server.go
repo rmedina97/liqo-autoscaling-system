@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
 	v1 "k8s.io/api/core/v1"
-	resource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	//"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/externalgrpc/protos"
@@ -63,6 +62,17 @@ type GPUTypes struct {
 }
 
 var flag int = 0
+
+type NodegroupTemplate struct {
+	NodegroupId string            `json:"nodegroupId"`
+	Resources   ResourceRange     `json:"resources"`
+	Labels      map[string]string `json:"labels"`
+}
+
+type ResourceRange struct {
+	Min v1.ResourceList `json:"min"`
+	Max v1.ResourceList `json:"max"`
+}
 
 // HERE END PERSONAL STRUCTS---------------// HERE END PERSONAL STRUCTS	---------------// HERE END PERSONAL STRUCTS
 
@@ -487,27 +497,84 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 // Implementation optional: if unimplemented return error code 12 (for `Unimplemented`)
 func (c *cloudProviderServer) NodeGroupTemplateNodeInfo(ctx context.Context, req *protos.NodeGroupTemplateNodeInfoRequest) (*protos.NodeGroupTemplateNodeInfoResponse, error) {
 	log.Printf("ASKS ABOUT TEMPLATE NODE INFO")
+	nodegroupTemplateId := req.Id
+	log.Printf("ASKS ABOUT TEMPLATE OF THIS NODE %s", nodegroupTemplateId)
+
 	//TODO write a rael functions in nodegroup manager to return the real info
+
+	client, err := newClient()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a client: %v", err)
+	}
+	// Take the parameter
+	url := fmt.Sprintf("https://localhost:9009/nodegroup/template?id=%s", nodegroupTemplateId)
+
+	// Send a GET request to the nodegroup controller
+	reply, err := client.Get(url) // TODO create a parameter
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute get query: %v", err)
+	}
+	defer reply.Body.Close()
+
+	// Check the response status code
+	if reply.StatusCode == http.StatusNotFound {
+		return &protos.NodeGroupTemplateNodeInfoResponse{}, fmt.Errorf("node with id %s doesn't exist", req.Id)
+	} else if reply.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server responded with status %d", reply.StatusCode)
+	}
+
+	// Decode the JSON response
+
+	// body, _ := io.ReadAll(reply.Body)
+	// log.Printf("raw JSON: %s", body)
+
+	var template NodegroupTemplate
+	if err := json.NewDecoder(reply.Body).Decode(&template); err != nil {
+		return nil, fmt.Errorf("error decoding JSON: %v", err)
+	}
+
+	log.Printf("template: %s %+v %+v ", template.NodegroupId, template.Labels, template.Resources)
+
+	// // Convert the response to the protos format
+	// protosNodeGroup := &protos.NodeGroup{
+	// 	Id:      nodeGroup.Id,
+	// 	MinSize: nodeGroup.MinSize,
+	// 	MaxSize: nodeGroup.MaxSize,
+	// }
+	// log.Printf("NodeGroupForNode: %v di ritorno per chiamata get nodegroup of the node", protosNodeGroup)
 
 	return &protos.NodeGroupTemplateNodeInfoResponse{
 		NodeInfo: &v1.Node{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "fake-node",
+				Name:   template.NodegroupId,
+				Labels: template.Labels,
 			},
 			Status: v1.NodeStatus{
-				Capacity: v1.ResourceList{
-					v1.ResourceCPU:    resource.MustParse("2"),
-					v1.ResourceMemory: resource.MustParse("4Gi"),
-					v1.ResourcePods:   resource.MustParse("110"),
-				},
-				Allocatable: v1.ResourceList{
-					v1.ResourceCPU:    resource.MustParse("2"),
-					v1.ResourceMemory: resource.MustParse("4Gi"),
-					v1.ResourcePods:   resource.MustParse("110"),
-				},
+				Capacity:    template.Resources.Min,
+				Allocatable: template.Resources.Min,
 			},
 		},
 	}, nil
+
+	// return &protos.NodeGroupTemplateNodeInfoResponse{
+	// 	NodeInfo: &v1.Node{
+	// 		ObjectMeta: metav1.ObjectMeta{
+	// 			Name: "fake-node",
+	// 		},
+	// 		Status: v1.NodeStatus{
+	// 			Capacity: v1.ResourceList{
+	// 				v1.ResourceCPU:    resource.MustParse("2"),
+	// 				v1.ResourceMemory: resource.MustParse("4Gi"),
+	// 				v1.ResourcePods:   resource.MustParse("110"),
+	// 			},
+	// 			Allocatable: v1.ResourceList{
+	// 				v1.ResourceCPU:    resource.MustParse("2"),
+	// 				v1.ResourceMemory: resource.MustParse("4Gi"),
+	// 				v1.ResourcePods:   resource.MustParse("110"),
+	// 			},
+	// 		},
+	// 	},
+	// }, nil
 
 	//return nil, status.Error(codes.Unimplemented, "function NodeGroupTemplateNodeInfo is Unimplemented")
 }

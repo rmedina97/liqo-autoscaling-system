@@ -10,10 +10,10 @@ import (
 )
 
 // List of GPU labels
-var gpuLabelsList = []string{"first type", "second type"}
+var gpuLabelsList = []string{"nvidia.com/gpu", "second type"}
 
 // label for GPU node
-var gpuLabel string = "GPU node"
+var gpuLabel string = "nvidia.com/gpu"
 
 func HandleConnection(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
@@ -92,6 +92,14 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 		nodegroupId := queryParams.Get("nodegroupid")
 		nodeId := queryParams.Get("id")
 		util.ScaleDownNodegroup(nodegroupId, nodeId)
+
+	case "/nodegroup/template":
+
+		// Get all the nodegroup
+		queryParams := r.URL.Query()
+		nodegroupId := queryParams.Get("id")
+		result, err := util.GetTemplateNodegroup(nodegroupId)
+		WriteGetResponse(w, result, err)
 
 	default:
 		log.Printf("wrong request")
