@@ -190,12 +190,13 @@ func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.
 	}
 
 	// Convert the response to the protos format
+	log.Printf("minsize of the nodegroup %s is %d", nodeGroup.Id, nodeGroup.MinSize)
 	protosNodeGroup := &protos.NodeGroup{
 		Id:      nodeGroup.Id,
 		MinSize: nodeGroup.MinSize,
 		MaxSize: nodeGroup.MaxSize,
 	}
-	log.Printf("NodeGroupForNode: %v di ritorno per chiamata get nodegroup of the node", protosNodeGroup)
+	log.Printf("NodeGroupForNode: %v di ritorno per chiamata get nodegroup of the node %s", protosNodeGroup, nodeId)
 
 	// Return the response
 	return &protos.NodeGroupForNodeResponse{
@@ -378,7 +379,7 @@ func (c *cloudProviderServer) NodeGroupTargetSize(ctx context.Context, req *prot
 	if err := json.NewDecoder(reply.Body).Decode(&currentSize); err != nil {
 		return nil, fmt.Errorf("error decoding JSON: %v", err)
 	}
-	log.Printf("NodeGroupTargetSize: %v di ritorno per chiamata get current size of the nodegroup", currentSize)
+	log.Printf("NodeGroupTargetSize: %v di ritorno per chiamata get current size of the nodegroup %s", currentSize, nodeId)
 
 	return &protos.NodeGroupTargetSizeResponse{
 		TargetSize: currentSize.CurrentSize,
@@ -401,7 +402,6 @@ func (c *cloudProviderServer) NodeGroupIncreaseSize(ctx context.Context, req *pr
 		}
 		// Take the parameter
 		nodegroupId := req.Id
-		log.Printf("l'id è %s e %s", nodegroupId, req.Id)
 		url := fmt.Sprintf("https://localhost:9009/nodegroup/scaleup?id=%s", nodegroupId)
 
 		// Send a GET request to the nodegroup controller
@@ -567,15 +567,9 @@ func (c *cloudProviderServer) NodeGroupTemplateNodeInfo(ctx context.Context, req
 		return nil, fmt.Errorf("error decoding JSON: %v", err)
 	}
 
-	log.Printf("template: %s %+v %+v ", template.NodegroupId, template.Labels, template.Resources)
+	//log.Printf("template: %s %+v %+v ", template.NodegroupId, template.Labels, template.Resources)
 
-	// // Convert the response to the protos format
-	// protosNodeGroup := &protos.NodeGroup{
-	// 	Id:      nodeGroup.Id,
-	// 	MinSize: nodeGroup.MinSize,
-	// 	MaxSize: nodeGroup.MaxSize,
-	// }
-	// log.Printf("NodeGroupForNode: %v di ritorno per chiamata get nodegroup of the node", protosNodeGroup)
+	// Convert the response to the protos format
 
 	return &protos.NodeGroupTemplateNodeInfoResponse{
 		NodeInfo: &v1.Node{

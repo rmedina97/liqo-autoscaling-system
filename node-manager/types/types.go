@@ -74,3 +74,42 @@ type ResourceRange struct {
 	Min v1.ResourceList `json:"min"`
 	Max v1.ResourceList `json:"max"`
 }
+
+// --------------------------------------------------
+// Resourceslice related types
+// --------------------------------------------------
+
+// Metadata tipizzata
+type Metadata struct {
+	Name        string            `yaml:"name"`
+	Namespace   string            `yaml:"namespace"`
+	Labels      map[string]string `yaml:"labels,omitempty"`
+	Annotations map[string]string `yaml:"annotations,omitempty"`
+}
+
+// Resources tipizzate
+type Resources struct {
+	CPU    string `yaml:"cpu"`
+	Memory string `yaml:"memory"`
+	Pods   string `yaml:"pods"`
+	GPU    string `yaml:"nvidia.com/gpu"`
+}
+
+// Spec tipizzata
+type ResourceSliceSpec struct {
+	Class             string    `yaml:"class"`
+	ProviderClusterID string    `yaml:"providerClusterID"`
+	Resources         Resources `yaml:"resources"`
+}
+
+// Status vuoto
+type Status struct{}
+
+// ResourceSlice completamente tipizzato
+type ResourceSlice struct {
+	APIVersion string            `yaml:"apiVersion"`
+	Kind       string            `yaml:"kind"`
+	Metadata   Metadata          `yaml:"metadata"`
+	Spec       ResourceSliceSpec `yaml:"spec"`
+	Status     Status            `yaml:"status"`
+}

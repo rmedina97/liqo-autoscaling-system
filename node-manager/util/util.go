@@ -1,6 +1,7 @@
 package util
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 
+	"go.yaml.in/yaml/v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/tools/clientcmd"
@@ -62,14 +64,14 @@ var mapNodegroupTemplate = map[string]types.NodegroupTemplate{
 		NodegroupId: "GPU",
 		Resources: types.ResourceRange{
 			Min: v1.ResourceList{
-				v1.ResourceCPU:    *resource.NewQuantity(4000, resource.DecimalSI),
-				v1.ResourceMemory: *resource.NewQuantity(4096, resource.DecimalSI),
+				v1.ResourceCPU:    *resource.NewQuantity(4, resource.DecimalSI),
+				v1.ResourceMemory: *resource.NewQuantity(4*1024*1024*1024, resource.BinarySI),
 				v1.ResourcePods:   *resource.NewQuantity(110, resource.DecimalSI),
 				"nvidia.com/gpu":  *resource.NewQuantity(1, resource.DecimalSI),
 			},
 			Max: v1.ResourceList{
-				v1.ResourceCPU:    *resource.NewQuantity(7000, resource.DecimalSI),
-				v1.ResourceMemory: *resource.NewQuantity(8192, resource.DecimalSI),
+				v1.ResourceCPU:    *resource.NewQuantity(7, resource.DecimalSI),
+				v1.ResourceMemory: *resource.NewQuantity(8*1024*1024*1024, resource.BinarySI),
 				v1.ResourcePods:   *resource.NewQuantity(110, resource.DecimalSI),
 				"nvidia.com/gpu":  *resource.NewQuantity(4, resource.DecimalSI),
 			},
@@ -79,20 +81,20 @@ var mapNodegroupTemplate = map[string]types.NodegroupTemplate{
 			"provider": "liqo",
 			"city":     "paris",
 		},
-		Cost: 0.5,
+		Cost: 0.9,
 	},
 	"STANDARD": {
 		NodegroupId: "STANDARD",
 		Resources: types.ResourceRange{
 			Min: v1.ResourceList{
-				v1.ResourceCPU:    *resource.NewQuantity(1500, resource.DecimalSI),
-				v1.ResourceMemory: *resource.NewQuantity(1024, resource.DecimalSI),
+				v1.ResourceCPU:    *resource.NewQuantity(1, resource.DecimalSI),
+				v1.ResourceMemory: *resource.NewQuantity(1*1024*1024*1024, resource.BinarySI),
 				v1.ResourcePods:   *resource.NewQuantity(110, resource.DecimalSI),
 				"nvidia.com/gpu":  *resource.NewQuantity(0, resource.DecimalSI),
 			},
 			Max: v1.ResourceList{
-				v1.ResourceCPU:    *resource.NewQuantity(3000, resource.DecimalSI),
-				v1.ResourceMemory: *resource.NewQuantity(3072, resource.DecimalSI),
+				v1.ResourceCPU:    *resource.NewQuantity(3, resource.DecimalSI),
+				v1.ResourceMemory: *resource.NewQuantity(3*1024*1024*1024, resource.BinarySI),
 				v1.ResourcePods:   *resource.NewQuantity(110, resource.DecimalSI),
 				"nvidia.com/gpu":  *resource.NewQuantity(0, resource.DecimalSI),
 			},
@@ -213,7 +215,7 @@ func DeleteNodegroup(nodegroupId string) (success bool, err error) {
 // scaleUpNodegroup scale up the nodegroup of a certain amount
 func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 
-	//numberToAdd := queryParams.Get("deltaInt")
+	// TODO numberToAdd := queryParams.Get("deltaInt")
 	log.Printf("ScaleUpNodegroup called with query params: %s", nodegroupId)
 
 	client, err := newClient()
@@ -241,7 +243,10 @@ func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 		log.Printf("error decoding JSON: %v", err)
 	}
 
-	//divide in nodegroup
+	//--------------------------------------------------
+	// Choose the first cluster that match the template (two template, one for GPU and one for standard)
+	// TODO implement a better choice algorithm
+	//--------------------------------------------------
 	clusterchosen := types.Cluster{}
 	for _, c := range clusterList {
 		if c.Labels["hasGPU"] == "true" && nodegroupId == "GPU" {
@@ -255,13 +260,14 @@ func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 	}
 
 	log.Printf("Cluster chosen: %s", clusterchosen.Name)
-	// -----------------------------------------
-	// Decodifica
+
+	//--------------------------------------------------
+	// Transform the kubeconfig from base64 to a file for the peering command
+	//--------------------------------------------------
 	kubeconfigBytes, err := base64.StdEncoding.DecodeString(clusterchosen.Kubeconfig)
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("preso new cluster %s", clusterchosen.Name)
 
 	cfg, err := clientcmd.Load(kubeconfigBytes)
 	if err != nil {
@@ -270,12 +276,12 @@ func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 
 	ctx := cfg.Contexts[cfg.CurrentContext]
 	if ctx == nil {
-		panic("context corrente non trovato")
+		panic("current context not found")
 	}
 
 	cluster := cfg.Clusters[ctx.Cluster]
 	if cluster == nil {
-		panic("cluster non trovato")
+		panic("cluster not found")
 	}
 
 	// Parse URL del server
@@ -285,7 +291,7 @@ func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 	}
 
 	ip := u.Hostname()
-	fmt.Println("IP estratto dal kubeconfig:", ip)
+	fmt.Println("IP extracted from kubeconfig:", ip)
 
 	// Crea file temporaneo
 	tmpFile, err := os.CreateTemp("", "kubeconfig-*.yaml")
@@ -295,18 +301,46 @@ func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 
 	defer os.Remove(tmpFile.Name())
 
-	// Scrive il contenuto
+	// Write the file
 	if _, err := tmpFile.Write(kubeconfigBytes); err != nil {
 		panic(err)
 	}
 	tmpFile.Close()
 
-	// Ottieni il path
+	// Get the path of the temporary file
 	kubeconfigPath := tmpFile.Name()
 	fmt.Println("Kubeconfig salvato in:", kubeconfigPath)
 	// -----------------------------------------
-	if !clusterchosen.HasNat {
+	// if !clusterchosen.HasNat {
 
+	// 	cmd := exec.Command(
+	// 		"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--skip-confirm",
+	// 	)
+	// 	output, err := cmd.CombinedOutput()
+	// 	if err != nil {
+	// 		log.Printf("Error during SSH:%v", err)
+	// 	}
+	// 	log.Printf("Output: %s ", output)
+
+	// } else {
+	// 	cmd := exec.Command(
+	// 		"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--api-server-url", ip, "--skip-confirm",
+	// 	)
+	// 	output, err := cmd.CombinedOutput()
+	// 	if err != nil {
+	// 		log.Printf("Error during SSH:%v", err)
+	// 	}
+	// 	log.Printf("Output: %s ", output)
+	// }
+
+	//--------------------------------------------------
+	// Peering with liqoctl two conditions: with/without nat and with/without GPU
+	// TODO check if the peering is already present
+	// TODO manage the error if the peering fails
+	//--------------------------------------------------
+
+	switch {
+	case !clusterchosen.HasNat && nodegroupId == "STANDARD":
 		cmd := exec.Command(
 			"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--skip-confirm",
 		)
@@ -316,7 +350,7 @@ func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 		}
 		log.Printf("Output: %s ", output)
 
-	} else {
+	case clusterchosen.HasNat && nodegroupId == "STANDARD":
 		cmd := exec.Command(
 			"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--api-server-url", ip, "--skip-confirm",
 		)
@@ -325,8 +359,118 @@ func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 			log.Printf("Error during SSH:%v", err)
 		}
 		log.Printf("Output: %s ", output)
+
+	case !clusterchosen.HasNat && nodegroupId == "GPU":
+		log.Printf("Cluster has no nat and request is for GPU")
+		cmd := exec.Command(
+			"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--create-resource-slice=false", "--skip-confirm",
+		)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Printf("Error during SSH:%v", err)
+		}
+		log.Printf("Output: %s ", output)
+		gpu := clusterchosen.Resources["nvidia.com/gpu"]
+		log.Printf("CLUSTER HAS %s GPUs ", gpu.String())
+		rs := types.ResourceSlice{
+			APIVersion: "authentication.liqo.io/v1beta1",
+			Kind:       "ResourceSlice",
+			Metadata: types.Metadata{
+				Name:      clusterchosen.Name,
+				Namespace: "liqo-tenant-" + clusterchosen.Name,
+				Labels: map[string]string{
+					"liqo.io/remote-cluster-id": clusterchosen.Name,
+					"liqo.io/remoteID":          clusterchosen.Name,
+					"liqo.io/replication":       "true",
+				},
+				Annotations: map[string]string{
+					"liqo.io/create-virtual-node": "true",
+					"custom.annotation":           "ciao",
+				},
+			},
+			Spec: types.ResourceSliceSpec{
+				Class:             "default",
+				ProviderClusterID: clusterchosen.Name,
+				Resources: types.Resources{
+					CPU:    clusterchosen.Resources.Cpu().String(),
+					Memory: clusterchosen.Resources.Memory().String(),
+					Pods:   clusterchosen.Resources.Pods().String(),
+					GPU:    gpu.String(),
+				},
+			},
+			Status: types.Status{},
+		}
+
+		data, err := yaml.Marshal(rs)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		cmd1 := exec.Command("kubectl", "apply", "-f", "-")
+		cmd1.Stdin = bytes.NewReader(data)
+		output1, err1 := cmd1.CombinedOutput()
+		if err != nil {
+			log.Fatalf("kubectl apply failed: %v\n%s", err1, string(output1))
+		}
+		log.Println(string(output1))
+		log.Printf("ResourceSlice created for cluster %s is actived?", clusterchosen.Name)
+
+	case clusterchosen.HasNat && nodegroupId == "GPU":
+		cmd := exec.Command(
+			"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--create-resource-slice=false", "--api-server-url", ip, "--skip-confirm",
+		)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Printf("Error during SSH:%v", err)
+		}
+		log.Printf("Output: %s ", output)
+		gpu := clusterchosen.Resources["nvidia.com/gpu"]
+		rs := types.ResourceSlice{
+			APIVersion: "authentication.liqo.io/v1beta1",
+			Kind:       "ResourceSlice",
+			Metadata: types.Metadata{
+				Name:      clusterchosen.Name,
+				Namespace: "liqo-tenant-" + clusterchosen.Name,
+				Labels: map[string]string{
+					"liqo.io/remote-cluster-id": clusterchosen.Name,
+					"liqo.io/remoteID":          clusterchosen.Name,
+					"liqo.io/replication":       "true",
+				},
+				Annotations: map[string]string{
+					"liqo.io/create-virtual-node": "true",
+					"custom.annotation":           "ciao",
+				},
+			},
+			Spec: types.ResourceSliceSpec{
+				Class:             "default",
+				ProviderClusterID: clusterchosen.Name,
+				Resources: types.Resources{
+					CPU:    clusterchosen.Resources.Cpu().String(),
+					Memory: clusterchosen.Resources.Memory().String(),
+					Pods:   clusterchosen.Resources.Pods().String(),
+					GPU:    gpu.String(),
+				},
+			},
+			Status: types.Status{},
+		}
+
+		data, err := yaml.Marshal(rs)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		cmd1 := exec.Command("kubectl", "apply", "-f", "-")
+		cmd1.Stdin = bytes.NewReader(data)
+		output1, err1 := cmd1.CombinedOutput()
+		if err != nil {
+			log.Fatalf("kubectl apply failed: %v\n%s", err1, string(output1))
+		}
+		log.Println(string(output1))
 	}
 
+	//--------------------------------------------------
+	// Update internal structures
+	//--------------------------------------------------
 	mapNode[clusterchosen.Name] = types.Node{Id: clusterchosen.Name, NodegroupId: nodegroupId, InstanceStatus: types.InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
 	nodegroup := mapNodegroup[nodegroupId]
 	nodegroup.CurrentSize++
