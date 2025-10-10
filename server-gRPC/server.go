@@ -407,7 +407,8 @@ func (c *cloudProviderServer) NodeGroupIncreaseSize(ctx context.Context, req *pr
 		}
 		// Take the parameter
 		nodegroupId := req.Id
-		url := fmt.Sprintf("https://localhost:9009/nodegroup/scaleup?id=%s", nodegroupId)
+		count := req.Delta
+		url := fmt.Sprintf("https://localhost:9009/nodegroup/scaleup?id=%s&count=%d", nodegroupId, count)
 
 		// Send a GET request to the nodegroup controller
 		reply, err := client.Get(url) // TODO create a parameter
@@ -442,25 +443,28 @@ func (c *cloudProviderServer) NodeGroupDeleteNodes(ctx context.Context, req *pro
 			return nil, fmt.Errorf("failed to create a client: %v", err)
 		}
 		// Take the parameter
-		nodeId := req.Nodes[0].ProviderID
-		nodegroupId := req.Id
-		log.Printf("Id node cancelled %s", nodegroupId)
-		url := fmt.Sprintf("https://localhost:9009/nodegroup/scaledown?id=%s&nodegroupid=%s", nodeId, nodegroupId)
+		nodeNumber := len(req.Nodes)
+		for i := 0; i < nodeNumber; i++ {
+			nodeId := req.Nodes[i].ProviderID
+			nodegroupId := req.Id
+			log.Printf("Id node %s cancelled for nodegroup %s \nu\nu\nu\nun\nu\n", nodeId, nodegroupId)
+			url := fmt.Sprintf("https://localhost:9009/nodegroup/scaledown?id=%s&nodegroupid=%s", nodeId, nodegroupId)
 
-		// Send a GET request to the nodegroup controller
-		reply, err := client.Get(url) // TODO create a parameter
-		if err != nil {
-			return nil, fmt.Errorf("failed to execute get query: %v", err)
-		}
-		defer reply.Body.Close()
+			// Send a GET request to the nodegroup controller
+			reply, err := client.Get(url) // TODO create a parameter
+			if err != nil {
+				return nil, fmt.Errorf("failed to execute get query: %v", err)
+			}
+			defer reply.Body.Close()
 
-		// Check the response status code
-		if reply.StatusCode == http.StatusNotFound {
-			return &protos.NodeGroupDeleteNodesResponse{}, nil //TODO probably there is a specific error
-		} else if reply.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("server responded with status %d", reply.StatusCode)
+			// Check the response status code
+			if reply.StatusCode == http.StatusNotFound {
+				return &protos.NodeGroupDeleteNodesResponse{}, nil //TODO probably there is a specific error
+			} else if reply.StatusCode != http.StatusOK {
+				return nil, fmt.Errorf("server responded with status %d", reply.StatusCode)
+			}
+			flag = 0
 		}
-		flag = 0
 	}
 	return &protos.NodeGroupDeleteNodesResponse{}, nil
 }
@@ -514,7 +518,7 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 	// Convert the response to the protos format
 	if nodegroupId == "STANDARD" {
 		provider = "k3s://"
-		log.Printf("provider k3s:// usato per il nodegroup %s ottenendo %s\nu\nu\nu\nu\nu\nu\nu\nu\nu\n", nodegroupId, provider+nodeList[0].Id)
+		//log.Printf("provider k3s:// usato per il nodegroup %s ottenendo %s\n", nodegroupId, provider+nodeList[0].Id)
 	} else {
 		provider = "liqo://"
 	}

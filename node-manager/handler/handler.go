@@ -7,6 +7,7 @@ import (
 	"net/http"
 	types "nodegroupController/types"
 	util "nodegroupController/util"
+	"strconv"
 )
 
 // List of GPU labels
@@ -82,7 +83,10 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 		// Scale up the nodegroup of a certain amount
 		queryParams := r.URL.Query()
 		id := queryParams.Get("id")
-		result, err := util.ScaleUpNodegroup(id)
+		countstr := queryParams.Get("count")
+		count, _ := strconv.Atoi(countstr)
+		log.Printf("Count------------------------------------------------ %d", count)
+		result, err := util.ScaleUpNodegroup(id, count)
 		WriteGetResponse(w, result, err)
 
 	case "/nodegroup/scaledown":
@@ -91,6 +95,8 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 		queryParams := r.URL.Query()
 		nodegroupId := queryParams.Get("nodegroupid")
 		nodeId := queryParams.Get("id")
+		log.Printf("NodegroupId------------------------------------------------ %s", nodegroupId)
+		log.Printf("NodeId------------------------------------------------ %s", nodeId)
 		util.ScaleDownNodegroup(nodegroupId, nodeId)
 
 	case "/nodegroup/template":
