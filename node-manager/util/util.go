@@ -13,6 +13,7 @@ import (
 	types "nodegroupController/types"
 	"os"
 	"os/exec"
+	"time"
 
 	"go.yaml.in/yaml/v2"
 	v1 "k8s.io/api/core/v1"
@@ -310,28 +311,6 @@ func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 	// Get the path of the temporary file
 	kubeconfigPath := tmpFile.Name()
 	fmt.Println("Kubeconfig salvato in:", kubeconfigPath)
-	// -----------------------------------------
-	// if !clusterchosen.HasNat {
-
-	// 	cmd := exec.Command(
-	// 		"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--skip-confirm",
-	// 	)
-	// 	output, err := cmd.CombinedOutput()
-	// 	if err != nil {
-	// 		log.Printf("Error during SSH:%v", err)
-	// 	}
-	// 	log.Printf("Output: %s ", output)
-
-	// } else {
-	// 	cmd := exec.Command(
-	// 		"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--api-server-url", ip, "--skip-confirm",
-	// 	)
-	// 	output, err := cmd.CombinedOutput()
-	// 	if err != nil {
-	// 		log.Printf("Error during SSH:%v", err)
-	// 	}
-	// 	log.Printf("Output: %s ", output)
-	// }
 
 	//--------------------------------------------------
 	// Peering with liqoctl two conditions: with/without nat and with/without GPU
@@ -435,10 +414,11 @@ func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 					"liqo.io/remote-cluster-id": clusterchosen.Name,
 					"liqo.io/remoteID":          clusterchosen.Name,
 					"liqo.io/replication":       "true",
+					"custom.label":              "shadow-slave",
 				},
 				Annotations: map[string]string{
-					"liqo.io/create-virtual-node": "true",
-					"custom.annotation":           "ciao",
+					"liqo.io/create-virtual-node": "false",
+					"custom.annotation":           "hello-there-general-kenobi",
 				},
 			},
 			Spec: types.ResourceSliceSpec{
@@ -466,6 +446,32 @@ func ScaleUpNodegroup(nodegroupId string) (success bool, err error) {
 			log.Fatalf("kubectl apply failed: %v\n%s", err1, string(output1))
 		}
 		log.Println(string(output1))
+	}
+
+	// Wait until the node is ready
+	for {
+		cmdCheck := exec.Command("kubectl", "get", "node", clusterchosen.Name)
+		if err := cmdCheck.Run(); err != nil {
+			log.Printf("Nodo %s non ancora creato, attendo 1s...", clusterchosen.Name)
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		break
+	}
+
+	cmdWait := exec.Command("kubectl", "wait", "node/"+clusterchosen.Name, "--for=condition=Ready", "--timeout=30s")
+	outputWait, err := cmdWait.CombinedOutput()
+	if err != nil {
+		log.Fatalf("Where is the virtual node?: %v\n%s", err, string(outputWait))
+	}
+
+	// Patch node with Provider ID
+	providerId := "liqo://" + clusterchosen.Name
+	patch := fmt.Sprintf(`{"spec":{"providerID":"%s"}}`, providerId)
+	cmdPatch := exec.Command("kubectl", "patch", "node", clusterchosen.Name, "--type=merge", "-p", patch)
+	outputPatch, err := cmdPatch.CombinedOutput()
+	if err != nil {
+		log.Fatalf("Patch failed: %v\n%s", err, string(outputPatch))
 	}
 
 	//--------------------------------------------------

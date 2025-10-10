@@ -167,6 +167,8 @@ func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.
 	// Take the parameter
 	//TODO use name or provider id? Liqo 0.10 non assegna Provider ID
 	nodeId := req.Node.Name
+	providerid := req.Node.ProviderID
+	log.Printf("NodeGroupForNode: richiesta per il nodo %s con provider id %s", nodeId, providerid)
 	url := fmt.Sprintf("https://localhost:9009/nodegroup/ownership?id=%s", nodeId)
 
 	// Send a GET request to the nodegroup controller
@@ -340,6 +342,9 @@ func (c *cloudProviderServer) Cleanup(ctx context.Context, req *protos.CleanupRe
 // TODO Make a new calls on nodegroup functions, otherwise will fail after a while
 func (c *cloudProviderServer) Refresh(ctx context.Context, req *protos.RefreshRequest) (*protos.RefreshResponse, error) {
 	//here TODO the real computations
+
+	log.Printf("REFRESHING \n REFRESHING \n REFRESHING \n REFRESHING \n ")
+
 	return &protos.RefreshResponse{}, nil
 }
 
@@ -439,7 +444,7 @@ func (c *cloudProviderServer) NodeGroupDeleteNodes(ctx context.Context, req *pro
 		// Take the parameter
 		nodeId := req.Nodes[0].ProviderID
 		nodegroupId := req.Id
-		log.Printf("l'id è %s e %s", nodegroupId, req.Id)
+		log.Printf("Id node cancelled %s", nodegroupId)
 		url := fmt.Sprintf("https://localhost:9009/nodegroup/scaledown?id=%s&nodegroupid=%s", nodeId, nodegroupId)
 
 		// Send a GET request to the nodegroup controller
@@ -476,6 +481,7 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 
 	//here TODO the real computations
 
+	var provider string
 	client, err := newClient()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a client: %v", err)
@@ -506,19 +512,27 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 	log.Printf("NodeGroupNodes: %d lunghezza lista", len(nodeList))
 
 	// Convert the response to the protos format
+	if nodegroupId == "STANDARD" {
+		provider = "k3s://"
+		log.Printf("provider k3s:// usato per il nodegroup %s ottenendo %s\nu\nu\nu\nu\nu\nu\nu\nu\nu\n", nodegroupId, provider+nodeList[0].Id)
+	} else {
+		provider = "liqo://"
+	}
 	protosNodes := make([]*protos.Instance, len(nodeList))
 	for i, node := range nodeList {
 		protosNodes[i] = &protos.Instance{
-			Id: node.Id,
+			Id: provider + node.Id,
 			Status: &protos.InstanceStatus{
-				InstanceState: 1, //protos.InstanceStatus_InstanceState(node.InstanceStatus.InstanceState),
-				//ErrorInfo: &protos.InstanceErrorInfo{
-				//	ErrorMessage: "", //node.InstanceStatus.InstanceErrorInfo,
-				//},
+				InstanceState: 1,
+				ErrorInfo: &protos.InstanceErrorInfo{
+					ErrorCode:          "",
+					ErrorMessage:       "",
+					InstanceErrorClass: 0,
+				},
 			},
 		}
 	}
-	log.Printf("nodegroupNodes: %v di ritorno per chiamata get nodes of the nodegroup", protosNodes)
+	log.Printf("nodegroupNodes: %v di ritorno per chiamata get nodes of the nodegroup %s", protosNodes, nodegroupId)
 
 	return &protos.NodeGroupNodesResponse{
 		Instances: protosNodes,
