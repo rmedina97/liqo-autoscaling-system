@@ -27,7 +27,7 @@ import (
 var mapNodegroup = map[string]types.Nodegroup{
 	"STANDARD": {
 		Id:          "STANDARD",
-		MaxSize:     4,
+		MaxSize:     3,
 		MinSize:     0,
 		CurrentSize: 0,
 		//Nodes:       []string{"rmedina"},
@@ -70,13 +70,14 @@ var mapNodegroupTemplate = map[string]types.NodegroupTemplate{
 		NodegroupId: "GPU",
 		Resources: types.ResourceRange{
 			Min: v1.ResourceList{
-				v1.ResourceCPU:    *resource.NewQuantity(4, resource.DecimalSI),
+				v1.ResourceCPU:    resource.MustParse("3.5"),
 				v1.ResourceMemory: *resource.NewQuantity(4*1024*1024*1024, resource.BinarySI),
 				v1.ResourcePods:   *resource.NewQuantity(110, resource.DecimalSI),
 				"nvidia.com/gpu":  *resource.NewQuantity(1, resource.DecimalSI),
 			},
 			Max: v1.ResourceList{
-				v1.ResourceCPU:    *resource.NewQuantity(4, resource.DecimalSI),
+				//v1.ResourceCPU:    *resource.NewQuantity(4, resource.DecimalSI),
+				v1.ResourceCPU:    resource.MustParse("3.5"),
 				v1.ResourceMemory: *resource.NewQuantity(8*1024*1024*1024, resource.BinarySI),
 				v1.ResourcePods:   *resource.NewQuantity(110, resource.DecimalSI),
 				"nvidia.com/gpu":  *resource.NewQuantity(4, resource.DecimalSI),
@@ -222,7 +223,7 @@ func DeleteNodegroup(nodegroupId string) (success bool, err error) {
 func ScaleUpNodegroup(nodegroupId string, count int) (success bool, err error) {
 
 	// TODO numberToAdd := queryParams.Get("deltaInt")
-	log.Printf("ScaleUpNodegroup called with query params: %s", nodegroupId)
+	log.Printf("ScaleUpNodegroup called with query params: id %s count  %d", nodegroupId, count)
 
 	client, err := newClient()
 	if err != nil {
@@ -247,6 +248,10 @@ func ScaleUpNodegroup(nodegroupId string, count int) (success bool, err error) {
 	var clusterList []types.Cluster
 	if err := json.NewDecoder(reply.Body).Decode(&clusterList); err != nil {
 		log.Printf("error decoding JSON: %v", err)
+	}
+
+	for key, value := range mapRemoteClusters {
+		log.Printf("%s: %v\n", key, value)
 	}
 
 	//--------------------------------------------------
@@ -332,14 +337,68 @@ func ScaleUpNodegroup(nodegroupId string, count int) (success bool, err error) {
 
 		switch {
 		case !clusterchosen.HasNat && nodegroupId == "STANDARD":
+			// cmd := exec.Command(
+			// 	"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--skip-confirm",
+			// )
+			// output, err := cmd.CombinedOutput()
+			// if err != nil {
+			// 	log.Printf("Error during SSH:%v", err)
+			// }
+			// log.Printf("Output: %s ", output)
+			log.Printf("Cluster has no nat and request is for STANDARD")
 			cmd := exec.Command(
-				"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--skip-confirm",
+				"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--create-resource-slice=false", "--skip-confirm",
 			)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				log.Printf("Error during SSH:%v", err)
 			}
 			log.Printf("Output: %s ", output)
+			gpu := clusterchosen.Resources["nvidia.com/gpu"]
+			log.Printf("CLUSTER HAS %s GPUs ", gpu.String())
+			rs := types.ResourceSlice{
+				APIVersion: "authentication.liqo.io/v1beta1",
+				Kind:       "ResourceSlice",
+				Metadata: types.Metadata{
+					Name:      clusterchosen.Name,
+					Namespace: "liqo-tenant-" + clusterchosen.Name,
+					Labels: map[string]string{
+						"liqo.io/remote-cluster-id": clusterchosen.Name,
+						"liqo.io/remoteID":          clusterchosen.Name,
+						"liqo.io/replication":       "true",
+					},
+					Annotations: map[string]string{
+						"liqo.io/create-virtual-node": "true",
+						"custom.annotation":           "hello-there-general-kenobi",
+					},
+				},
+				Spec: types.ResourceSliceSpec{
+					Class:             "default",
+					ProviderClusterID: clusterchosen.Name,
+					Resources: types.Resources{
+						//CPU:    clusterchosen.Resources.Cpu().String(),
+						CPU:    "1.5",
+						Memory: clusterchosen.Resources.Memory().String(),
+						Pods:   clusterchosen.Resources.Pods().String(),
+						GPU:    gpu.String(),
+					},
+				},
+				Status: types.Status{},
+			}
+
+			data, err := yaml.Marshal(rs)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			cmd1 := exec.Command("kubectl", "apply", "-f", "-")
+			cmd1.Stdin = bytes.NewReader(data)
+			output1, err1 := cmd1.CombinedOutput()
+			if err != nil {
+				log.Fatalf("kubectl apply failed: %v\n%s", err1, string(output1))
+			}
+			log.Println(string(output1))
+			log.Printf("ResourceSlice created for cluster %s is actived?", clusterchosen.Name)
 
 		case clusterchosen.HasNat && nodegroupId == "STANDARD":
 			cmd := exec.Command(
@@ -376,14 +435,15 @@ func ScaleUpNodegroup(nodegroupId string, count int) (success bool, err error) {
 					},
 					Annotations: map[string]string{
 						"liqo.io/create-virtual-node": "true",
-						"custom.annotation":           "ciao",
+						"custom.annotation":           "hello-there-general-kenobi",
 					},
 				},
 				Spec: types.ResourceSliceSpec{
 					Class:             "default",
 					ProviderClusterID: clusterchosen.Name,
 					Resources: types.Resources{
-						CPU:    clusterchosen.Resources.Cpu().String(),
+						//CPU:    clusterchosen.Resources.Cpu().String(),
+						CPU:    "3.5",
 						Memory: clusterchosen.Resources.Memory().String(),
 						Pods:   clusterchosen.Resources.Pods().String(),
 						GPU:    gpu.String(),
@@ -586,7 +646,7 @@ func ScaleDownNodegroup(nodegroupId string, nodeId string) (success bool, err er
 	nodegroup.CurrentSize--
 	mapNodegroup[nodegroupId] = nodegroup
 	delete(mapNode, nodeId)
-	delete(mapRemoteClusters, nodeId)
+	delete(mapRemoteClusters, cleanNodeId)
 	return true, nil
 }
 

@@ -85,7 +85,7 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 		id := queryParams.Get("id")
 		countstr := queryParams.Get("count")
 		count, _ := strconv.Atoi(countstr)
-		log.Printf("Count------------------------------------------------ %d", count)
+		log.Printf("Count------------------------------------------------ %d for nodegroup %s", count, id)
 		result, err := util.ScaleUpNodegroup(id, count)
 		WriteGetResponse(w, result, err)
 
@@ -95,8 +95,8 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 		queryParams := r.URL.Query()
 		nodegroupId := queryParams.Get("nodegroupid")
 		nodeId := queryParams.Get("id")
-		log.Printf("NodegroupId------------------------------------------------ %s", nodegroupId)
-		log.Printf("NodeId------------------------------------------------ %s", nodeId)
+		log.Printf("NodegroupId scale down------------------------------------------------ %s", nodegroupId)
+		log.Printf("NodeId to be cancelled------------------------------------------------ %s", nodeId)
 		util.ScaleDownNodegroup(nodegroupId, nodeId)
 
 	case "/nodegroup/template":
