@@ -88,7 +88,7 @@ var mapNodegroupTemplate = map[string]types.NodegroupTemplate{
 			"provider": "liqo",
 			"city":     "paris",
 		},
-		Cost: 23.0,
+		Cost: 1.0,
 	},
 	"STANDARD": {
 		NodegroupId: "STANDARD",
@@ -222,7 +222,6 @@ func DeleteNodegroup(nodegroupId string) (success bool, err error) {
 // scaleUpNodegroup scale up the nodegroup of a certain amount
 func ScaleUpNodegroup(nodegroupId string, count int) (success bool, err error) {
 
-	// TODO numberToAdd := queryParams.Get("deltaInt")
 	log.Printf("ScaleUpNodegroup called with query params: id %s count  %d", nodegroupId, count)
 
 	client, err := newClient()
@@ -552,6 +551,7 @@ func ScaleUpNodegroup(nodegroupId string, count int) (success bool, err error) {
 		mapNode[clusterchosen.Name] = types.Node{Id: clusterchosen.Name, NodegroupId: nodegroupId, InstanceStatus: types.InstanceStatus{InstanceState: 1, InstanceErrorInfo: ""}}
 		nodegroup := mapNodegroup[nodegroupId]
 		nodegroup.CurrentSize++
+		log.Printf("Nodegroup size is %d after adding node %s", nodegroup.CurrentSize, clusterchosen.Name)
 		nodegroup.Nodes = append(nodegroup.Nodes, clusterchosen.Name)
 		mapNodegroup[nodegroupId] = nodegroup
 	}
@@ -638,14 +638,15 @@ func ScaleDownNodegroup(nodegroupId string, nodeId string) (success bool, err er
 	}
 	nodegroup := mapNodegroup[nodegroupId]
 	for i, node := range nodegroup.Nodes {
-		if node == nodeId { // Remove the node from the list
+		if node == cleanNodeId { // Remove the node from the list
 			nodegroup.Nodes = append(nodegroup.Nodes[:i], nodegroup.Nodes[i+1:]...)
 			break
 		}
 	}
 	nodegroup.CurrentSize--
+	log.Printf("Nodegroup size is %d after removing node %s", nodegroup.CurrentSize, cleanNodeId)
 	mapNodegroup[nodegroupId] = nodegroup
-	delete(mapNode, nodeId)
+	delete(mapNode, cleanNodeId)
 	delete(mapRemoteClusters, cleanNodeId)
 	return true, nil
 }

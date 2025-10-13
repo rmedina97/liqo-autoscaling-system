@@ -516,12 +516,13 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 	log.Printf("NodeGroupNodes: %d lunghezza lista", len(nodeList))
 
 	// Convert the response to the protos format
-	if nodegroupId == "STANDARD" {
-		provider = "k3s://"
-		//log.Printf("provider k3s:// usato per il nodegroup %s ottenendo %s\n", nodegroupId, provider+nodeList[0].Id)
-	} else {
-		provider = "liqo://"
-	}
+	// if nodegroupId == "STANDARD" {
+	// 	provider = "k3s://"
+	// 	//log.Printf("provider k3s:// usato per il nodegroup %s ottenendo %s\n", nodegroupId, provider+nodeList[0].Id)
+	// } else {
+	// 	provider = "liqo://"
+	// }
+	provider = "liqo://"
 	protosNodes := make([]*protos.Instance, len(nodeList))
 	for i, node := range nodeList {
 		protosNodes[i] = &protos.Instance{
