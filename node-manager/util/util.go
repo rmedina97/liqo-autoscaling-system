@@ -13,6 +13,7 @@ import (
 	types "nodegroupController/types"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -88,7 +89,7 @@ var mapNodegroupTemplate = map[string]types.NodegroupTemplate{
 			"provider": "liqo",
 			"city":     "paris",
 		},
-		Cost: 1.0,
+		Cost: 25.0,
 	},
 	"STANDARD": {
 		NodegroupId: "STANDARD",
@@ -669,12 +670,24 @@ func GetPriceNodegroup(id string) (*float64, error) {
 
 	// No existing Nodegrouptemplate
 	log.Printf("GetPriceNodegroup called with id: %s", id)
-	template, exist := mapNodegroupTemplate[id]
+	re := regexp.MustCompile(`for-([^-]+)-`)
+	templateName := re.FindStringSubmatch(id)
+	log.Printf("Extracted template name: %s", templateName[1])
+	template, exist := mapNodegroupTemplate[templateName[1]]
 	if !exist {
 		log.Printf("Nodegroup template not found")
 		return nil, nil //TODO change with error
 	}
+	log.Printf("Price of NODEGRUPPPP----------------- %s is %f", id, template.Cost)
 	return &template.Cost, nil
+}
+
+// getPriceNodegroup get the price of a nodegroup
+func GetPricePod() (*float64, error) {
+
+	// Assuming same price
+	var podprice float64 = 1.00
+	return &podprice, nil
 }
 
 // Create a new client
