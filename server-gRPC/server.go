@@ -416,7 +416,7 @@ func (c *cloudProviderServer) NodeGroupTargetSize(ctx context.Context, req *prot
 	if err := json.NewDecoder(reply.Body).Decode(&currentSize); err != nil {
 		return nil, fmt.Errorf("error decoding JSON: %v", err)
 	}
-	log.Printf("NodeGroupTargetSize: %v di ritorno per chiamata get current size of the nodegroup %s", currentSize, nodeId)
+	log.Printf("GetNodeGroupTargetSize: %v of the nodegroup %s", currentSize, nodeId)
 
 	return &protos.NodeGroupTargetSizeResponse{
 		TargetSize: currentSize.CurrentSize,
@@ -545,7 +545,7 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 	if err := json.NewDecoder(reply.Body).Decode(&nodeList); err != nil {
 		return nil, fmt.Errorf("error decoding JSON: %v", err)
 	}
-	log.Printf("NodeGroupNodes: %d lunghezza lista", len(nodeList))
+	log.Printf("NodeGroupNodes: %d list size", len(nodeList))
 
 	// Convert the response to the protos format
 	// if nodegroupId == "STANDARD" {
@@ -569,7 +569,7 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 			},
 		}
 	}
-	log.Printf("nodegroupNodes: %v di ritorno per chiamata get nodes of the nodegroup %s", protosNodes, nodegroupId)
+	log.Printf("GetNodegroupNodes: %v of the nodegroup %s", protosNodes, nodegroupId)
 
 	return &protos.NodeGroupNodesResponse{
 		Instances: protosNodes,

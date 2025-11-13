@@ -179,7 +179,6 @@ func GetNodegroupNodes(id string) (*[]types.NodeMinInfo, error) {
 			nodeX := mapNode[nodeId]
 			nodeMinInfoList = append(nodeMinInfoList, types.NodeMinInfo{Id: nodeX.Id, InstanceStatus: nodeX.InstanceStatus})
 		}
-		log.Printf("nodeMinInfoList: %v", nodeMinInfoList)
 		return &nodeMinInfoList, nil
 	}
 }
@@ -222,8 +221,6 @@ func DeleteNodegroup(nodegroupId string) (success bool, err error) {
 
 // scaleUpNodegroup scale up the nodegroup of a certain amount
 func ScaleUpNodegroup(nodegroupId string, count int) (success bool, err error) {
-
-	log.Printf("ScaleUpNodegroup called with query params: id %s count  %d", nodegroupId, count)
 
 	client, err := newClient()
 	if err != nil {
@@ -327,7 +324,7 @@ func ScaleUpNodegroup(nodegroupId string, count int) (success bool, err error) {
 
 		// Get the path of the temporary file
 		kubeconfigPath := tmpFile.Name()
-		fmt.Println("Kubeconfig salvato in:", kubeconfigPath)
+		fmt.Println("Kubeconfig saved in:", kubeconfigPath)
 
 		//--------------------------------------------------
 		// Peering with liqoctl two conditions: with/without nat and with/without GPU
@@ -337,14 +334,7 @@ func ScaleUpNodegroup(nodegroupId string, count int) (success bool, err error) {
 
 		switch {
 		case !clusterchosen.HasNat && nodegroupId == "STANDARD":
-			// cmd := exec.Command(
-			// 	"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--skip-confirm",
-			// )
-			// output, err := cmd.CombinedOutput()
-			// if err != nil {
-			// 	log.Printf("Error during SSH:%v", err)
-			// }
-			// log.Printf("Output: %s ", output)
+
 			log.Printf("Cluster has no nat and request is for STANDARD")
 			cmd := exec.Command(
 				"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--create-resource-slice=false", "--skip-confirm",
@@ -524,7 +514,7 @@ func ScaleUpNodegroup(nodegroupId string, count int) (success bool, err error) {
 		for {
 			cmdCheck := exec.Command("kubectl", "get", "node", clusterchosen.Name)
 			if err := cmdCheck.Run(); err != nil {
-				log.Printf("Nodo %s non ancora creato, attendo 1s...", clusterchosen.Name)
+				log.Printf("Node %s not create, waiting 1s...", clusterchosen.Name)
 				time.Sleep(1 * time.Second)
 				continue
 			}
@@ -591,7 +581,6 @@ func ScaleDownNodegroup(nodegroupId string, nodeId string) (success bool, err er
 
 	//divide in nodegroup
 	cleanNodeId := strings.TrimPrefix(nodeId, "liqo://")
-	log.Printf("Clean node id to be deleted \n\n\n\n\n\n\n\n: %s", cleanNodeId)
 	clusterchosen := types.Cluster{}
 	for _, c := range clusterList {
 		if c.Name == cleanNodeId {
@@ -599,8 +588,6 @@ func ScaleDownNodegroup(nodegroupId string, nodeId string) (success bool, err er
 			break
 		}
 	}
-
-	log.Printf("Cluster chosen: %s", clusterchosen.Name)
 	// -----------------------------------------
 	// Decodifica
 	kubeconfigBytes, err := base64.StdEncoding.DecodeString(clusterchosen.Kubeconfig)
@@ -669,7 +656,6 @@ func GetTemplateNodegroup(id string) (*types.NodegroupTemplate, error) {
 func GetPriceNodegroup(id string) (*float64, error) {
 
 	// No existing Nodegrouptemplate
-	log.Printf("GetPriceNodegroup called with id: %s", id)
 	re := regexp.MustCompile(`for-([^-]+)-`)
 	templateName := re.FindStringSubmatch(id)
 	log.Printf("Extracted template name: %s", templateName[1])
@@ -678,7 +664,6 @@ func GetPriceNodegroup(id string) (*float64, error) {
 		log.Printf("Nodegroup template not found")
 		return nil, nil //TODO change with error
 	}
-	log.Printf("Price of NODEGRUPPPP----------------- %s is %f", id, template.Cost)
 	return &template.Cost, nil
 }
 
