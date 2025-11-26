@@ -10,6 +10,7 @@ import (
 
 func main() {
 
+	//test.TestDecode()
 	mux := http.NewServeMux()
 	//TODO use different handler for different routes
 	mux.HandleFunc("/", handler.HandleConnection)

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	functions "nodegroupController/functions"
 	types "nodegroupController/types"
-	util "nodegroupController/util"
 	"strconv"
 )
 
@@ -21,7 +21,7 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 	case "/nodegroup":
 
 		// Get all the nodegroup
-		result, err := util.GetAllNodegroups()
+		result, err := functions.GetAllNodegroups()
 		WriteGetResponse(w, result, err)
 
 	case "/nodegroup/ownership":
@@ -29,7 +29,7 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 		// Get the nodegroup of a specific node
 		queryParams := r.URL.Query()
 		id := queryParams.Get("id")
-		result, err := util.GetNodegroupForNode(id)
+		result, err := functions.GetNodegroupForNode(id)
 		WriteGetResponse(w, result, err)
 
 	case "/nodegroup/current-size":
@@ -37,7 +37,7 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 		// Get the current size of a specific nodegroup
 		queryParams := r.URL.Query()
 		id := queryParams.Get("id")
-		result, err := util.GetCurrentSize(id)
+		result, err := functions.GetCurrentSize(id)
 		WriteGetResponse(w, result, err)
 
 	case "/gpu/label":
@@ -55,7 +55,7 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 		// Get all the nodes of a nodegroup
 		queryParams := r.URL.Query()
 		id := queryParams.Get("id")
-		result, err := util.GetNodegroupNodes(id)
+		result, err := functions.GetNodegroupNodes(id)
 		WriteGetResponse(w, result, err)
 
 	case "/nodegroup/create":
@@ -67,7 +67,7 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 			WriteGetResponse(w, nil, err)
 			return
 		}
-		result, err := util.CreateNodegroup(newNodegroup)
+		result, err := functions.CreateNodegroup(newNodegroup)
 		WriteGetResponse(w, result, err)
 
 	case "/nodegroup/destroy":
@@ -75,7 +75,7 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 		// Delete the target nodegroup
 		queryParams := r.URL.Query()
 		id := queryParams.Get("id")
-		result, err := util.DeleteNodegroup(id)
+		result, err := functions.DeleteNodegroup(id)
 		WriteGetResponse(w, result, err)
 
 	case "/nodegroup/scaleup":
@@ -86,7 +86,7 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 		countstr := queryParams.Get("count")
 		count, _ := strconv.Atoi(countstr)
 		log.Printf("Node/nodes to be added ------------------------------------------------ %d for nodegroup %s", count, id)
-		result, err := util.ScaleUpNodegroup(id, count)
+		result, err := functions.ScaleUpNodegroup(id, count)
 		WriteGetResponse(w, result, err)
 
 	case "/nodegroup/scaledown":
@@ -97,14 +97,14 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 		nodeId := queryParams.Get("id")
 		log.Printf("NodegroupId scale down ------------------------------------------------ %s", nodegroupId)
 		log.Printf("NodeId to be cancelled ------------------------------------------------ %s", nodeId)
-		util.ScaleDownNodegroup(nodegroupId, nodeId)
+		functions.ScaleDownNodegroup(nodegroupId, nodeId)
 
 	case "/nodegroup/template":
 
 		// Get all the nodegroup
 		queryParams := r.URL.Query()
 		nodegroupId := queryParams.Get("id")
-		result, err := util.GetTemplateNodegroup(nodegroupId)
+		result, err := functions.GetTemplateNodegroup(nodegroupId)
 		WriteGetResponse(w, result, err)
 
 	case "/nodegroup/nodeprice":
@@ -112,13 +112,13 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 		// Get all the nodegroup
 		queryParams := r.URL.Query()
 		nodegroupId := queryParams.Get("id")
-		result, err := util.GetPriceNodegroup(nodegroupId)
+		result, err := functions.GetPriceNodegroup(nodegroupId)
 		WriteGetResponse(w, result, err)
 
 	case "/nodegroup/podprice":
 
 		// Get all the nodegroup
-		result, err := util.GetPricePod()
+		result, err := functions.GetPricePod()
 		WriteGetResponse(w, result, err)
 
 	default:
