@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	functions "nodegroupController/functions"
-	types "nodegroupController/types"
+	functions "node-manager/functions"
+	types "node-manager/types"
 	"strconv"
 )
 

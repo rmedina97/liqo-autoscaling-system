@@ -9,14 +9,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	types "nodegroupController/types"
+	types "node-manager/types"
 	"os"
 	"os/exec"
 	"regexp"
 	"strings"
 	"time"
 
-	util "nodegroupController/util"
+	util "node-manager/util"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -225,34 +225,6 @@ func DeleteNodegroup(nodegroupId string) (success bool, err error) {
 // scaleUpNodegroup scale up the nodegroup of a certain amount
 func ScaleUpNodegroup(nodegroupId string, count int) (success bool, err error) {
 
-	// client, err := newClient()
-	// if err != nil {
-	// 	log.Printf("failed to create a client: %v", err)
-	// }
-
-	// // Send a GET request to the discovery server
-	// reply, err := client.Get("https://localhost:9010/list") // TODO create a parameter
-	// if err != nil {
-	// 	log.Printf("failed to execute get query: %v", err)
-	// }
-	// defer reply.Body.Close()
-
-	// // Check the response status code
-	// if reply.StatusCode == http.StatusNotFound {
-	// 	log.Printf("remote cluster not found")
-	// } else if reply.StatusCode != http.StatusOK {
-	// 	log.Printf("server responded with status %d", reply.StatusCode)
-	// }
-
-	// // Decode the JSON response
-	// var clusterList []types.Cluster
-	// if err := json.NewDecoder(reply.Body).Decode(&clusterList); err != nil {
-	// 	log.Printf("error decoding JSON: %v", err)
-	// }
-
-	// for key, value := range mapRemoteClusters {
-	// 	log.Printf("%s: %v\n", key, value)
-	// }
 	clusterList, err := util.GetClusterList()
 	if err != nil {
 		panic(err)
@@ -283,264 +255,10 @@ func ScaleUpNodegroup(nodegroupId string, count int) (success bool, err error) {
 
 		log.Printf("Cluster chosen: %s", clusterchosen.Name)
 
-		//--------------------------------------------------
-		// Transform the kubeconfig from base64 to a file for the peering command
-		//--------------------------------------------------
-		// kubeconfigBytes, err := base64.StdEncoding.DecodeString(clusterchosen.Kubeconfig)
-		// if err != nil {
-		// 	panic(err)
-		// }
-
-		// cfgRemote, err := clientcmd.Load(kubeconfigBytes)
-		// if err != nil {
-		// 	panic(err)
-		// }
-
-		// ctxRemote := cfgRemote.Contexts[cfgRemote.CurrentContext]
-		// if ctxRemote == nil {
-		// 	panic("current remote context not found")
-		// }
-
-		// cluster := cfgRemote.Clusters[ctxRemote.Cluster]
-		// if cluster == nil {
-		// 	panic("remote cluster not found")
-		// }
-
-		// // Parse URL del server
-		// urlRemote, err := url.Parse(cluster.Server)
-		// if err != nil {
-		// 	panic(err)
-		// }
-
-		// ip := urlRemote.Hostname()
-		// fmt.Println("IP extracted from kubeconfig:", ip)
-
-		// // Crea file temporaneo
-		// tmpFile, err := os.CreateTemp("", "kubeconfig-*.yaml")
-		// if err != nil {
-		// 	panic(err)
-		// }
-
-		// defer os.Remove(tmpFile.Name())
-
-		// // Write the file
-		// if _, err := tmpFile.Write(kubeconfigBytes); err != nil {
-		// 	panic(err)
-		// }
-		// tmpFile.Close()
-
-		// // Get the path of the temporary file
-		// kubeconfigPathRemote := tmpFile.Name()
-		// fmt.Println("Kubeconfig saved in:", kubeconfigPathRemote)
 		ip, kubeconfigPathRemote, tmp, err := util.DecodeKubeconfig(clusterchosen.Kubeconfig)
 		if err != nil {
 			return false, fmt.Errorf("kubeconfig decode error: %w", err)
 		}
-
-		//--------------------------------------------------
-		// Peering with liqoctl two conditions: with/without nat and with/without GPU
-		// TODO check if the peering is already present
-		// TODO manage the error if the peering fails
-		//--------------------------------------------------
-
-		// Client creation, dynamic for custom resources, clientset for core resources
-		// cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
-		// if err != nil {
-		// 	log.Fatalf("Errore caricando kubeconfig: %v", err)
-		// }
-		// dynClient, err := dynamic.NewForConfig(cfg)
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-		// clientset, err := kubernetes.NewForConfig(cfg)
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-
-		// switch {
-		// case !clusterchosen.HasNat && nodegroupId == "STANDARD":
-
-		// 	log.Printf("Cluster has no nat and request is for STANDARD")
-		// 	cmd := exec.Command(
-		// 		"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPathRemote, "--create-resource-slice=false", "--skip-confirm",
-		// 	)
-		// 	output, err := cmd.CombinedOutput()
-		// 	if err != nil {
-		// 		log.Printf("Error during SSH:%v", err)
-		// 	}
-		// 	log.Printf("Output: %s ", output)
-		// 	gpu := clusterchosen.Resources["nvidia.com/gpu"]
-		// 	log.Printf("CLUSTER HAS %s GPUs ", gpu.String())
-
-		// 	log.Printf("------------------------- creato kubeconfig?")
-		// 	// GVR della CRD ResourceSlice
-		// 	gvr := schema.GroupVersionResource{
-		// 		Group:    "authentication.liqo.io",
-		// 		Version:  "v1beta1",
-		// 		Resource: "resourceslices",
-		// 	}
-
-		// 	// Oggetto unstructured
-		// 	rs := &unstructured.Unstructured{
-		// 		Object: map[string]interface{}{
-		// 			"apiVersion": "authentication.liqo.io/v1beta1",
-		// 			"kind":       "ResourceSlice",
-		// 			"metadata": map[string]interface{}{
-		// 				"name":      clusterchosen.Name,
-		// 				"namespace": "liqo-tenant-" + clusterchosen.Name,
-		// 				"labels": map[string]interface{}{
-		// 					"liqo.io/remote-cluster-id": clusterchosen.Name,
-		// 					"liqo.io/remoteID":          clusterchosen.Name,
-		// 					"liqo.io/replication":       "true",
-		// 				},
-		// 				"annotations": map[string]interface{}{
-		// 					"liqo.io/create-virtual-node": "true",
-		// 					"custom.annotation":           "hello-there-general-kenobi",
-		// 				},
-		// 			},
-		// 			"spec": map[string]interface{}{
-		// 				"class":             "default",
-		// 				"providerClusterID": clusterchosen.Name,
-		// 				"resources": map[string]interface{}{
-		// 					"cpu":    "1.5",
-		// 					"memory": clusterchosen.Resources.Memory().String(),
-		// 					"pods":   clusterchosen.Resources.Pods().String(),
-		// 					"gpu":    gpu.String(),
-		// 				},
-		// 			},
-		// 			"status": map[string]interface{}{},
-		// 		},
-		// 	}
-
-		// 	// Creazione della risorsa
-		// 	result, err := dynClient.Resource(gvr).
-		// 		Namespace("liqo-tenant-"+clusterchosen.Name).
-		// 		Create(context.Background(), rs, metav1.CreateOptions{})
-		// 	if err != nil {
-		// 		log.Fatalf("Errore creando ResourceSlice: %v", err)
-		// 	}
-
-		// 	log.Printf("ResourceSlice %s creata correttamente", result.GetName())
-
-		// case clusterchosen.HasNat && nodegroupId == "STANDARD":
-		// 	cmd := exec.Command(
-		// 		"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--api-server-url", ip, "--skip-confirm",
-		// 	)
-		// 	output, err := cmd.CombinedOutput()
-		// 	if err != nil {
-		// 		log.Printf("Error during SSH:%v", err)
-		// 	}
-		// 	log.Printf("Output: %s ", output)
-
-		// case !clusterchosen.HasNat && nodegroupId == "GPU":
-		// 	log.Printf("Cluster has no nat and request is for GPU")
-		// 	cmd := exec.Command(
-		// 		"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--create-resource-slice=false", "--skip-confirm",
-		// 	)
-		// 	output, err := cmd.CombinedOutput()
-		// 	if err != nil {
-		// 		log.Printf("Error during SSH:%v", err)
-		// 	}
-		// 	log.Printf("Output: %s ", output)
-		// 	gpu := clusterchosen.Resources["nvidia.com/gpu"]
-		// 	log.Printf("CLUSTER HAS %s GPUs ", gpu.String())
-		// 	rs := types.ResourceSlice{
-		// 		APIVersion: "authentication.liqo.io/v1beta1",
-		// 		Kind:       "ResourceSlice",
-		// 		Metadata: types.Metadata{
-		// 			Name:      clusterchosen.Name,
-		// 			Namespace: "liqo-tenant-" + clusterchosen.Name,
-		// 			Labels: map[string]string{
-		// 				"liqo.io/remote-cluster-id": clusterchosen.Name,
-		// 				"liqo.io/remoteID":          clusterchosen.Name,
-		// 				"liqo.io/replication":       "true",
-		// 			},
-		// 			Annotations: map[string]string{
-		// 				"liqo.io/create-virtual-node": "true",
-		// 				"custom.annotation":           "hello-there-general-kenobi",
-		// 			},
-		// 		},
-		// 		Spec: types.ResourceSliceSpec{
-		// 			Class:             "default",
-		// 			ProviderClusterID: clusterchosen.Name,
-		// 			Resources: types.Resources{
-		// 				//CPU:    clusterchosen.Resources.Cpu().String(),
-		// 				CPU:    "3.5",
-		// 				Memory: clusterchosen.Resources.Memory().String(),
-		// 				Pods:   clusterchosen.Resources.Pods().String(),
-		// 				GPU:    gpu.String(),
-		// 			},
-		// 		},
-		// 		Status: types.Status{},
-		// 	}
-
-		// 	data, err := yaml.Marshal(rs)
-		// 	if err != nil {
-		// 		log.Fatal(err)
-		// 	}
-
-		// 	cmd1 := exec.Command("kubectl", "apply", "-f", "-")
-		// 	cmd1.Stdin = bytes.NewReader(data)
-		// 	output1, err1 := cmd1.CombinedOutput()
-		// 	if err != nil {
-		// 		log.Fatalf("kubectl apply failed: %v\n%s", err1, string(output1))
-		// 	}
-		// 	log.Println(string(output1))
-		// 	log.Printf("ResourceSlice created for cluster %s is actived?", clusterchosen.Name)
-
-		// case clusterchosen.HasNat && nodegroupId == "GPU":
-		// 	cmd := exec.Command(
-		// 		"liqoctl", "peer", "--remote-kubeconfig", kubeconfigPath, "--create-resource-slice=false", "--api-server-url", ip, "--skip-confirm",
-		// 	)
-		// 	output, err := cmd.CombinedOutput()
-		// 	if err != nil {
-		// 		log.Printf("Error during SSH:%v", err)
-		// 	}
-		// 	log.Printf("Output: %s ", output)
-		// 	gpu := clusterchosen.Resources["nvidia.com/gpu"]
-		// 	rs := types.ResourceSlice{
-		// 		APIVersion: "authentication.liqo.io/v1beta1",
-		// 		Kind:       "ResourceSlice",
-		// 		Metadata: types.Metadata{
-		// 			Name:      clusterchosen.Name,
-		// 			Namespace: "liqo-tenant-" + clusterchosen.Name,
-		// 			Labels: map[string]string{
-		// 				"liqo.io/remote-cluster-id": clusterchosen.Name,
-		// 				"liqo.io/remoteID":          clusterchosen.Name,
-		// 				"liqo.io/replication":       "true",
-		// 				"custom.label":              "shadow-slave",
-		// 			},
-		// 			Annotations: map[string]string{
-		// 				"liqo.io/create-virtual-node": "false",
-		// 				"custom.annotation":           "hello-there-general-kenobi",
-		// 			},
-		// 		},
-		// 		Spec: types.ResourceSliceSpec{
-		// 			Class:             "default",
-		// 			ProviderClusterID: clusterchosen.Name,
-		// 			Resources: types.Resources{
-		// 				CPU:    clusterchosen.Resources.Cpu().String(),
-		// 				Memory: clusterchosen.Resources.Memory().String(),
-		// 				Pods:   clusterchosen.Resources.Pods().String(),
-		// 				GPU:    gpu.String(),
-		// 			},
-		// 		},
-		// 		Status: types.Status{},
-		// 	}
-
-		// 	data, err := yaml.Marshal(rs)
-		// 	if err != nil {
-		// 		log.Fatal(err)
-		// 	}
-
-		// 	cmd1 := exec.Command("kubectl", "apply", "-f", "-")
-		// 	cmd1.Stdin = bytes.NewReader(data)
-		// 	output1, err1 := cmd1.CombinedOutput()
-		// 	if err != nil {
-		// 		log.Fatalf("kubectl apply failed: %v\n%s", err1, string(output1))
-		// 	}
-		// 	log.Println(string(output1))
-		// }
 
 		// Wait until the node exists
 

@@ -10,7 +10,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	types "nodegroupController/types"
+	types "node-manager/types"
 	"os"
 	"os/exec"
 

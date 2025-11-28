@@ -7,8 +7,8 @@ import (
 	"net/http"
 
 	//"os/exec"
-	handler "nodegroupController/handler"
-	types "nodegroupController/types"
+	handler "node-manager/handler"
+	types "node-manager/types"
 )
 
 func main() {
