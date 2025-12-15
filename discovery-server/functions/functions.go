@@ -1,16 +1,13 @@
 package util
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"log"
-	"os/exec"
 
 	watcher "discovery_server/watcher"
 
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/rest"
 )
 
 // var clusterList = []Cluster{
@@ -117,32 +114,10 @@ func UpdateList(name string, kubeconfig string, resources int) error {
 	return nil
 }
 
-func TestDecode() error {
-	cmd := exec.Command("kubectl", "get", "secret", "mio-secret", "-n", "demo", "-o", "json")
-	out, _ := cmd.Output()
-	// Parse del JSON del Secret
-	var s Secret
-	if err := json.Unmarshal(out, &s); err != nil {
-		panic(err)
-	}
-
-	// Prendo il campo che hai messo tu
-	encoded := s.Data["dati"]
-
-	// Decodifico il base64
-	decoded, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println("Contenuto del JSON del Secret:")
-	fmt.Println(string(decoded))
-	return nil
-}
-
-func CreateKubernetesClient(kubeconfigPath string, client string) (*kubernetes.Clientset, error) {
-	// Client creation, dynamic for custom resources, clientset for core resources
-	cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+func CreateKubernetesClient() (*kubernetes.Clientset, error) {
+	// Client clientset for core resources
+	//cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		log.Fatalf("Errore caricando kubeconfig: %v", err)
 	}

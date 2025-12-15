@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discovery-server
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: discovery-server
+  template:
+    metadata:
+      labels:
+        app: discovery-server
+    spec:
+      serviceAccountName: discovery-sa
+      containers:
+      - name: discovery-server
+        image: discovery-server:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9010
+        volumeMounts:
+        - name: certs
+          mountPath: /app/certificates
+          readOnly: true
+      volumes:
+      - name: certs
+        secret:
+          secretName: tls-cert-secret
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: discovery-server-svc
+  namespace: demo
+spec:
+  selector:
+    app: discovery-server
+  ports:
+    - protocol: TCP
+      port: 9010
+      targetPort: 9010
+      nodePort: 30010
+  type: NodePort

@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: discovery-sa
+  namespace: demo
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: config-secret-watcher
+  namespace: demo
+rules:
+- apiGroups: [""]
+  resources:
+    - secrets
+    - configmaps
+  verbs:
+    - get
+    - list
+    - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: config-secret-watcher-binding
+  namespace: demo
+subjects:
+- kind: ServiceAccount
+  name: discovery-sa
+  namespace: demo
+roleRef:
+  kind: Role
+  name: config-secret-watcher
+  apiGroup: rbac.authorization.k8s.io
