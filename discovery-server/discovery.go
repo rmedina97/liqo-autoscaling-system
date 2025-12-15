@@ -5,10 +5,22 @@ import (
 	"net/http"
 
 	cert "discovery_server/certificates"
+	function "discovery_server/functions"
 	handler "discovery_server/handlers"
+	watcher "discovery_server/watcher"
 )
 
 func main() {
+
+	stopCh := make(chan struct{})
+
+	var kubeconfigPathLocal = "/home/rmedina/.kube/config"
+	clientset, erro := function.CreateKubernetesClient(kubeconfigPathLocal, "standard")
+	if erro != nil {
+		log.Fatalf("Errore creando il clientset: %v", erro)
+	}
+
+	go watcher.StartClusterSecretWatcher(clientset, "demo", stopCh)
 
 	//test.TestDecode()
 	mux := http.NewServeMux()
