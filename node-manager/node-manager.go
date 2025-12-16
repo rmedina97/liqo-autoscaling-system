@@ -8,7 +8,6 @@ import (
 
 	//"os/exec"
 	handler "node-manager/handler"
-	types "node-manager/types"
 )
 
 func main() {
@@ -17,7 +16,10 @@ func main() {
 	mux := http.NewServeMux()
 	//TODO use different handler for different routes
 	mux.HandleFunc("/", handler.HandleConnection)
-	err := http.ListenAndServeTLS(":9009", types.CertPem, types.KeyPem, mux)
+	//from secret
+	certPath := "/app/certificates/tls.crt"
+	keyPath := "/app/certificates/tls.key"
+	err := http.ListenAndServeTLS(":9009", certPath, keyPath, mux)
 	if err != nil {
 		log.Fatalf("failed to start server, %v ", err)
 	}

@@ -1,0 +1,28 @@
+[ req ]
+default_bits       = 2048
+prompt             = no
+default_md         = sha256
+distinguished_name = dn
+req_extensions     = req_ext
+
+[ dn ]
+C  = IT
+ST = Italy
+L  = Torino
+O  = TestOrg
+OU = TestRiccardo
+CN = localhost
+
+[ req_ext ]
+subjectAltName = @alt_names
+
+[ alt_names ]
+DNS.1 = localhost
+DNS.2 = discovery-server-svc
+DNS.3 = discovery-server-svc.demo
+DNS.4 = discovery-server-svc.demo.svc
+DNS.5 = discovery-server-svc.demo.svc.cluster.local
+DNS.6 = node-manager-svc
+DNS.7 = node-manager-svc.demo
+DNS.8 = node-manager-svc.demo.svc
+DNS.9 = node-manager-svc.demo.svc.cluster.local

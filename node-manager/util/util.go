@@ -31,7 +31,7 @@ func GetClusterList() ([]types.Cluster, error) {
 	}
 
 	// Send a GET request to the discovery server
-	reply, err := client.Get("https://localhost:9010/list") // TODO create a parameter
+	reply, err := client.Get("https://discovery-server-svc.demo:9010/list") // TODO create a parameter
 	if err != nil {
 		log.Printf("failed to execute get query: %v", err)
 	}
@@ -58,7 +58,7 @@ func GetClusterList() ([]types.Cluster, error) {
 // TODO Search if someone still uses 509 cert without san, if yes use VerifyPeerCertificate to custom accept them
 func newClient() (*http.Client, error) {
 	certPool := x509.NewCertPool()
-	certData, err := os.ReadFile("cert.pem")
+	certData, err := os.ReadFile("/app/certificates/tls.crt")
 
 	if err != nil {
 		return nil, fmt.Errorf("error reading certificate: %v", err)
@@ -122,6 +122,7 @@ func DecodeKubeconfig(kubeconfigBase64 string) (string, string, string, error) {
 
 	// Get the path of the temporary file
 	kubeconfigPathRemote := tmpFile.Name()
+	// TODO: Delete tmpFile.Name() because == kubeconfigPathRemote, and transform in a struct with all the info
 	fmt.Println("Kubeconfig saved in:", kubeconfigPathRemote)
 
 	return ip, kubeconfigPathRemote, tmpFile.Name(), nil
