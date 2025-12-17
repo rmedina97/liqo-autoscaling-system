@@ -2,16 +2,9 @@ package functions
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	types "node-manager/types"
-	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 	"time"
@@ -336,30 +329,9 @@ func ScaleUpNodegroup(nodegroupId string, count int) (success bool, err error) {
 // scaleDownNodegroup scale down the nodegroup killing a certain node
 func ScaleDownNodegroup(nodegroupId string, nodeId string) (success bool, err error) {
 
-	// TODO Sent request to discovery server for only the kubeconfig of that node
-	client, err := newClient()
+	clusterList, err := util.GetClusterList()
 	if err != nil {
-		log.Printf("failed to create a client: %v", err)
-	}
-
-	// Send a GET request to the discovery server
-	reply, err := client.Get("https://localhost:9010/list") // TODO create a parameter
-	if err != nil {
-		log.Printf("failed to execute get query: %v", err)
-	}
-	defer reply.Body.Close()
-
-	// Check the response status code
-	if reply.StatusCode == http.StatusNotFound {
-		log.Printf("remote cluster not found")
-	} else if reply.StatusCode != http.StatusOK {
-		log.Printf("server responded with status %d", reply.StatusCode)
-	}
-
-	// Decode the JSON response
-	var clusterList []types.Cluster
-	if err := json.NewDecoder(reply.Body).Decode(&clusterList); err != nil {
-		log.Printf("error decoding JSON: %v", err)
+		panic(err)
 	}
 
 	//divide in nodegroup
@@ -371,41 +343,17 @@ func ScaleDownNodegroup(nodegroupId string, nodeId string) (success bool, err er
 			break
 		}
 	}
-	// -----------------------------------------
-	// Decodifica
-	kubeconfigBytes, err := base64.StdEncoding.DecodeString(clusterchosen.Kubeconfig)
-	if err != nil {
-		panic(err)
-	}
+
 	log.Printf("preso cluster %s", clusterchosen.Name)
 
-	// Crea file temporaneo
-	tmpFile, err := os.CreateTemp("", "kubeconfig-*.yaml")
-	if err != nil {
-		panic(err)
+	_, kubeconfigPath, _, error := util.DecodeKubeconfig(clusterchosen.Kubeconfig)
+	if error != nil {
+		return false, fmt.Errorf("kubeconfig decode error: %w", error)
 	}
 
-	defer os.Remove(tmpFile.Name())
-
-	// Scrive il contenuto
-	if _, err := tmpFile.Write(kubeconfigBytes); err != nil {
-		panic(err)
-	}
-	tmpFile.Close()
-
-	// Ottieni il path
-	kubeconfigPath := tmpFile.Name()
-	fmt.Println("Kubeconfig salvato in:", kubeconfigPath)
-	// -----------------------------------------
-
-	//log.Printf("ScaleDownNodegroup called on first: %s", nodeId)
-	cmd := exec.Command(
-		"liqoctl", "unpeer", "--remote-kubeconfig", kubeconfigPath, "--skip-confirm",
-	)
-	output, err := cmd.CombinedOutput()
-	log.Printf("Fine SSH, %s %s", output, err)
+	err = util.UnPeeringWithLiqoctl(kubeconfigPath)
 	if err != nil {
-		log.Printf("Error during SSH: %v", err)
+		return false, fmt.Errorf("unpeering error: %w", err)
 	}
 	nodegroup := mapNodegroup[nodegroupId]
 	for i, node := range nodegroup.Nodes {
@@ -456,28 +404,4 @@ func GetPricePod() (*float64, error) {
 	// Assuming same price
 	var podprice float64 = 1.00
 	return &podprice, nil
-}
-
-// Create a new client
-// TODO Search if someone still uses 509 cert without san, if yes use VerifyPeerCertificate to custom accept them
-func newClient() (*http.Client, error) {
-	certPool := x509.NewCertPool()
-	certData, err := os.ReadFile("cert.pem")
-
-	if err != nil {
-		return nil, fmt.Errorf("error reading certificate: %v", err)
-	}
-
-	if !certPool.AppendCertsFromPEM(certData) {
-		return nil, fmt.Errorf("failed to append certificate")
-	}
-
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig:   &tls.Config{RootCAs: certPool},
-			ForceAttemptHTTP2: true,
-		},
-	}
-	return client, nil
-
 }

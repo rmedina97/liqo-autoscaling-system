@@ -292,3 +292,21 @@ func CreateVirtualNodeLabel(clusterchosen types.Cluster) error {
 	return nil
 
 }
+
+func UnPeeringWithLiqoctl(kubeconfigPathRemote string) error {
+
+	// Prepare to delete the temporary kubeconfig file
+	defer os.Remove(kubeconfigPathRemote)
+
+	log.Printf("Cluster has no nat and request is for STANDARD")
+	cmd := exec.Command(
+		"liqoctl", "unpeer", "--remote-kubeconfig", kubeconfigPathRemote, "--skip-confirm",
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Error during liqoctl unpeer: %v", err)
+		return fmt.Errorf(" error: %w", err)
+	}
+	log.Printf("Output: %s ", output)
+	return nil
+}
