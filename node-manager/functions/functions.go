@@ -117,8 +117,6 @@ var mapNodegroupTemplate = map[string]types.NodegroupTemplate{
 	},
 }
 
-var kubeconfigPathLocal = "/home/rmedina/.kube/config"
-
 // List of function inside the handle connection -------------------------------------------------------
 
 // getAllNodegroups get all the nodegroups
@@ -262,8 +260,8 @@ func ScaleUpNodegroup(nodegroupId string, count int) (success bool, err error) {
 
 		// Wait until the node exists
 
-		_, clientset := util.CreateKubernetesClient(kubeconfigPathLocal, "ordinary")
-		errPeering := util.PeeringWithLiqoctl(clusterchosen, nodegroupId, kubeconfigPathRemote, kubeconfigPathLocal, tmp, ip)
+		_, clientset := util.CreateKubernetesClient("ordinary")
+		errPeering := util.PeeringWithLiqoctl(clusterchosen, nodegroupId, kubeconfigPathRemote, tmp, ip)
 		if errPeering != nil {
 			return false, fmt.Errorf("peering error: %w", errPeering)
 		} else {

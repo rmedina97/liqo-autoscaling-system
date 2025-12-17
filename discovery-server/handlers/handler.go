@@ -18,12 +18,12 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Sent list to the Node Manager")
 		WriteGetResponse(w, result, err)
 
-	case "/update":
+	//case "/update":
 
-		// Update the list of remote clusters
-		//TODO: unwrap https request and pass only the raw data
-		//err := fun.UpdateList()
-		//WriteGetResponse(w, "", err)
+	// Update the list of remote clusters
+	//TODO: unwrap https request and pass only the raw data
+	//err := fun.UpdateList()
+	//WriteGetResponse(w, "", err)
 
 	default:
 		log.Printf("wrong request")

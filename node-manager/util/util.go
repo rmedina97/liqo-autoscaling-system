@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -19,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -78,16 +78,21 @@ func newClient() (*http.Client, error) {
 
 }
 
-func DecodeKubeconfig(kubeconfigBase64 string) (string, string, string, error) {
-	kubeconfigBytes, err := base64.StdEncoding.DecodeString(kubeconfigBase64)
+func DecodeKubeconfig(kubeconfig string) (string, string, string, error) {
+	// kubeconfigBytes, err := base64.StdEncoding.DecodeString(kubeconfigBase64)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// Parse kubeconfig automatically with clientcmd
+	cfgRemote, err := clientcmd.Load([]byte(kubeconfig))
 	if err != nil {
-		panic(err)
+		panic("error loading kubeconfig")
 	}
 
-	cfgRemote, err := clientcmd.Load(kubeconfigBytes)
-	if err != nil {
-		panic(err)
-	}
+	// cfgRemote, err := clientcmd.Load(kubeconfigBytes)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	ctxRemote := cfgRemote.Contexts[cfgRemote.CurrentContext]
 	if ctxRemote == nil {
@@ -115,7 +120,7 @@ func DecodeKubeconfig(kubeconfigBase64 string) (string, string, string, error) {
 	}
 
 	// Write the file
-	if _, err := tmpFile.Write(kubeconfigBytes); err != nil {
+	if _, err := tmpFile.Write([]byte(kubeconfig)); err != nil {
 		panic(err)
 	}
 	tmpFile.Close()
@@ -131,7 +136,6 @@ func DecodeKubeconfig(kubeconfigBase64 string) (string, string, string, error) {
 func PeeringWithLiqoctl(clusterchosen types.Cluster,
 	nodegroupId string,
 	kubeconfigPathRemote string,
-	kubeconfigPathLocal string,
 	tmpFile string,
 	ip string) error {
 
@@ -153,55 +157,7 @@ func PeeringWithLiqoctl(clusterchosen types.Cluster,
 		gpu := clusterchosen.Resources["nvidia.com/gpu"]
 		log.Printf("CLUSTER HAS %s GPUs ", gpu.String())
 
-		// // GVR della CRD ResourceSlice
-		// gvr := schema.GroupVersionResource{
-		// 	Group:    "authentication.liqo.io",
-		// 	Version:  "v1beta1",
-		// 	Resource: "resourceslices",
-		// }
-
-		// // Oggetto unstructured
-		// rs := &unstructured.Unstructured{
-		// 	Object: map[string]interface{}{
-		// 		"apiVersion": "authentication.liqo.io/v1beta1",
-		// 		"kind":       "ResourceSlice",
-		// 		"metadata": map[string]interface{}{
-		// 			"name":      clusterchosen.Name,
-		// 			"namespace": "liqo-tenant-" + clusterchosen.Name,
-		// 			"labels": map[string]interface{}{
-		// 				"liqo.io/remote-cluster-id": clusterchosen.Name,
-		// 				"liqo.io/remoteID":          clusterchosen.Name,
-		// 				"liqo.io/replication":       "true",
-		// 			},
-		// 			"annotations": map[string]interface{}{
-		// 				"liqo.io/create-virtual-node": "true",
-		// 				"custom.annotation":           "hello-there-general-kenobi",
-		// 			},
-		// 		},
-		// 		"spec": map[string]interface{}{
-		// 			"class":             "default",
-		// 			"providerClusterID": clusterchosen.Name,
-		// 			"resources": map[string]interface{}{
-		// 				"cpu":    "1.5",
-		// 				"memory": clusterchosen.Resources.Memory().String(),
-		// 				"pods":   clusterchosen.Resources.Pods().String(),
-		// 				"gpu":    gpu.String(),
-		// 			},
-		// 		},
-		// 		"status": map[string]interface{}{},
-		// 	},
-		// }
-
-		// // Creazione della risorsa
-		// result, err := dynClient.Resource(gvr).
-		// 	Namespace("liqo-tenant-"+clusterchosen.Name).
-		// 	Create(context.Background(), rs, metav1.CreateOptions{})
-		// if err != nil {
-		// 	return fmt.Errorf("ResourceSlice creation error: %w", err)
-		// }
-
-		// log.Printf("ResourceSlice %s created", result.GetName())
-		err = CreateVirtualNodeLabel(clusterchosen, kubeconfigPathLocal)
+		err = CreateVirtualNodeLabel(clusterchosen)
 		if err != nil {
 			return fmt.Errorf("ResourceSlice creation error: %w", err)
 		}
@@ -216,7 +172,7 @@ func PeeringWithLiqoctl(clusterchosen types.Cluster,
 		}
 		log.Printf("Output: %s ", output)
 
-		err = CreateVirtualNodeLabel(clusterchosen, kubeconfigPathLocal)
+		err = CreateVirtualNodeLabel(clusterchosen)
 		if err != nil {
 			return fmt.Errorf("ResourceSlice creation error: %w", err)
 		}
@@ -231,52 +187,8 @@ func PeeringWithLiqoctl(clusterchosen types.Cluster,
 			return fmt.Errorf("SSH error: %w", err)
 		}
 		log.Printf("Output: %s ", output)
-		// gpu := clusterchosen.Resources["nvidia.com/gpu"]
-		// log.Printf("CLUSTER HAS %s GPUs ", gpu.String())
-		// rs := types.ResourceSlice{
-		// 	APIVersion: "authentication.liqo.io/v1beta1",
-		// 	Kind:       "ResourceSlice",
-		// 	Metadata: types.Metadata{
-		// 		Name:      clusterchosen.Name,
-		// 		Namespace: "liqo-tenant-" + clusterchosen.Name,
-		// 		Labels: map[string]string{
-		// 			"liqo.io/remote-cluster-id": clusterchosen.Name,
-		// 			"liqo.io/remoteID":          clusterchosen.Name,
-		// 			"liqo.io/replication":       "true",
-		// 		},
-		// 		Annotations: map[string]string{
-		// 			"liqo.io/create-virtual-node": "true",
-		// 			"custom.annotation":           "hello-there-general-kenobi",
-		// 		},
-		// 	},
-		// 	Spec: types.ResourceSliceSpec{
-		// 		Class:             "default",
-		// 		ProviderClusterID: clusterchosen.Name,
-		// 		Resources: types.Resources{
-		// 			//CPU:    clusterchosen.Resources.Cpu().String(),
-		// 			CPU:    "3.5",
-		// 			Memory: clusterchosen.Resources.Memory().String(),
-		// 			Pods:   clusterchosen.Resources.Pods().String(),
-		// 			GPU:    gpu.String(),
-		// 		},
-		// 	},
-		// 	Status: types.Status{},
-		// }
 
-		// data, err := yaml.Marshal(rs)
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-
-		// cmd1 := exec.Command("kubectl", "apply", "-f", "-")
-		// cmd1.Stdin = bytes.NewReader(data)
-		// output1, err1 := cmd1.CombinedOutput()
-		// if err != nil {
-		// 	log.Fatalf("kubectl apply failed: %v\n%s", err1, string(output1))
-		// }
-		// log.Println(string(output1))
-		// log.Printf("ResourceSlice created for cluster %s is actived?", clusterchosen.Name)
-		err = CreateVirtualNodeLabel(clusterchosen, kubeconfigPathLocal)
+		err = CreateVirtualNodeLabel(clusterchosen)
 		if err != nil {
 			return fmt.Errorf("ResourceSlice creation error: %w", err)
 		}
@@ -290,50 +202,8 @@ func PeeringWithLiqoctl(clusterchosen types.Cluster,
 			return fmt.Errorf("SSH error: %w", err)
 		}
 		log.Printf("Output: %s ", output)
-		// gpu := clusterchosen.Resources["nvidia.com/gpu"]
-		// rs := types.ResourceSlice{
-		// 	APIVersion: "authentication.liqo.io/v1beta1",
-		// 	Kind:       "ResourceSlice",
-		// 	Metadata: types.Metadata{
-		// 		Name:      clusterchosen.Name,
-		// 		Namespace: "liqo-tenant-" + clusterchosen.Name,
-		// 		Labels: map[string]string{
-		// 			"liqo.io/remote-cluster-id": clusterchosen.Name,
-		// 			"liqo.io/remoteID":          clusterchosen.Name,
-		// 			"liqo.io/replication":       "true",
-		// 			"custom.label":              "shadow-slave",
-		// 		},
-		// 		Annotations: map[string]string{
-		// 			"liqo.io/create-virtual-node": "false",
-		// 			"custom.annotation":           "hello-there-general-kenobi",
-		// 		},
-		// 	},
-		// 	Spec: types.ResourceSliceSpec{
-		// 		Class:             "default",
-		// 		ProviderClusterID: clusterchosen.Name,
-		// 		Resources: types.Resources{
-		// 			CPU:    clusterchosen.Resources.Cpu().String(),
-		// 			Memory: clusterchosen.Resources.Memory().String(),
-		// 			Pods:   clusterchosen.Resources.Pods().String(),
-		// 			GPU:    gpu.String(),
-		// 		},
-		// 	},
-		// 	Status: types.Status{},
-		// }
 
-		// data, err := yaml.Marshal(rs)
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-
-		// cmd1 := exec.Command("kubectl", "apply", "-f", "-")
-		// cmd1.Stdin = bytes.NewReader(data)
-		// output1, err1 := cmd1.CombinedOutput()
-		// if err != nil {
-		// 	log.Fatalf("kubectl apply failed: %v\n%s", err1, string(output1))
-		// }
-		// log.Println(string(output1))
-		err = CreateVirtualNodeLabel(clusterchosen, kubeconfigPathLocal)
+		err = CreateVirtualNodeLabel(clusterchosen)
 		if err != nil {
 			return fmt.Errorf("ResourceSlice creation error: %w", err)
 		}
@@ -342,9 +212,10 @@ func PeeringWithLiqoctl(clusterchosen types.Cluster,
 	return nil
 }
 
-func CreateKubernetesClient(kubeconfigPath string, client string) (dynamic.Interface, *kubernetes.Clientset) {
+func CreateKubernetesClient(client string) (dynamic.Interface, *kubernetes.Clientset) {
+
 	// Client creation, dynamic for custom resources, clientset for core resources
-	cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		log.Fatalf("Errore caricando kubeconfig: %v", err)
 	}
@@ -363,10 +234,10 @@ func CreateKubernetesClient(kubeconfigPath string, client string) (dynamic.Inter
 	}
 }
 
-func CreateVirtualNodeLabel(clusterchosen types.Cluster, kubeconfigPathLocal string) error {
+func CreateVirtualNodeLabel(clusterchosen types.Cluster) error {
 
 	// Create dynamic client
-	dynClient, _ := CreateKubernetesClient(kubeconfigPathLocal, "dynamic")
+	dynClient, _ := CreateKubernetesClient("dynamic")
 
 	//TODO GPU can have different names, need to generalize
 	// Get GPU resources

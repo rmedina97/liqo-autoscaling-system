@@ -50,13 +50,3 @@ address: "localhost:9007"
 grpc_timeout: 4m
 ```
 
-
-docker build -t discovery-server:latest .
-docker save discovery-server:latest -o discovery-server.tar
-sudo k3s ctr images import discovery-server.tar
-sudo k3s ctr images ls | grep discovery-server
-
-
-docker build -t node-manager:latest .
-docker save node-manager:latest -o node-manager.tar
-sudo k3s ctr images import node-manager.tar
