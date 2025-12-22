@@ -86,7 +86,7 @@ type cloudProviderServer struct {
 // TODO Search if someone still uses 509 cert without san, if yes use VerifyPeerCertificate to custom accept them
 func newClient() (*http.Client, error) {
 	certPool := x509.NewCertPool()
-	certData, err := os.ReadFile("cert.pem")
+	certData, err := os.ReadFile("/app/certificates/tls.crt")
 
 	if err != nil {
 		return nil, fmt.Errorf("error reading certificate: %v", err)
@@ -117,7 +117,7 @@ func (s *cloudProviderServer) NodeGroups(ctx context.Context, req *protos.NodeGr
 		return nil, fmt.Errorf("failed to create a client: %v", err)
 	}
 
-	reply, err := client.Get("https://localhost:9009/nodegroup") // TODO create a parameter
+	reply, err := client.Get("https://node-manager-svc:9009/nodegroup") // TODO create a parameter
 	if err != nil {
 		return nil, fmt.Errorf("failed to get nodegroup: %v", err)
 	}
@@ -169,7 +169,7 @@ func (c *cloudProviderServer) NodeGroupForNode(ctx context.Context, req *protos.
 	nodeId := req.Node.Name
 	providerid := req.Node.ProviderID
 	log.Printf("NodeGroupForNode: richiesta per il nodo %s con provider id %s", nodeId, providerid)
-	url := fmt.Sprintf("https://localhost:9009/nodegroup/ownership?id=%s", nodeId)
+	url := fmt.Sprintf("https://node-manager-svc:9009/nodegroup/ownership?id=%s", nodeId)
 
 	// Send a GET request to the nodegroup controller
 	reply, err := client.Get(url) // TODO create a better parameter, maybe using something more complex like DefaultClient
@@ -220,7 +220,7 @@ func (c *cloudProviderServer) PricingNodePrice(ctx context.Context, req *protos.
 	// Take the parameter
 	//TODO use name or provider id? Liqo 0.10 non assegna Provider ID
 	nodeId := req.Node.Name
-	url := fmt.Sprintf("https://localhost:9009/nodegroup/nodeprice?id=%s", nodeId)
+	url := fmt.Sprintf("https://node-manager-svc:9009/nodegroup/nodeprice?id=%s", nodeId)
 
 	// Send a GET request to the nodegroup controller
 	reply, err := client.Get(url) // TODO create a better parameter, maybe using something more complex like DefaultClient
@@ -260,7 +260,7 @@ func (c *cloudProviderServer) PricingPodPrice(ctx context.Context, req *protos.P
 
 	// Take the parameter
 	//TODO use name or provider id? Liqo 0.10 non assegna Provider ID
-	url := "https://localhost:9009/nodegroup/podprice"
+	url := "https://node-manager-svc:9009/nodegroup/podprice"
 
 	// Send a GET request to the nodegroup controller
 	reply, err := client.Get(url) // TODO create a better parameter, maybe using something more complex like DefaultClient
@@ -299,7 +299,7 @@ func (c *cloudProviderServer) GPULabel(ctx context.Context, req *protos.GPULabel
 	}
 
 	// Send a GET request to the nodegroup controller
-	reply, err := client.Get("https://localhost:9009/gpu/label") // TODO create a parameter
+	reply, err := client.Get("https://node-manager-svc:9009/gpu/label") // TODO create a parameter
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute get query: %v", err)
 	}
@@ -334,7 +334,7 @@ func (c *cloudProviderServer) GetAvailableGPUTypes(ctx context.Context, req *pro
 	}
 
 	// Send a GET request to the nodegroup controller
-	reply, err := client.Get("https://localhost:9009/gpu/types") // TODO create a parameter
+	reply, err := client.Get("https://node-manager-svc:9009/gpu/types") // TODO create a parameter
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute get query: %v", err)
 	}
@@ -395,7 +395,7 @@ func (c *cloudProviderServer) NodeGroupTargetSize(ctx context.Context, req *prot
 
 	// Take the parameter
 	nodeId := req.Id
-	url := fmt.Sprintf("https://localhost:9009/nodegroup/current-size?id=%s", nodeId)
+	url := fmt.Sprintf("https://node-manager-svc:9009/nodegroup/current-size?id=%s", nodeId)
 
 	// Send a GET request to the nodegroup controller
 	reply, err := client.Get(url) // TODO create a parameter
@@ -440,7 +440,7 @@ func (c *cloudProviderServer) NodeGroupIncreaseSize(ctx context.Context, req *pr
 		// Take the parameter
 		nodegroupId := req.Id
 		count := req.Delta
-		url := fmt.Sprintf("https://localhost:9009/nodegroup/scaleup?id=%s&count=%d", nodegroupId, count)
+		url := fmt.Sprintf("https://node-manager-svc:9009/nodegroup/scaleup?id=%s&count=%d", nodegroupId, count)
 
 		// Send a GET request to the nodegroup controller
 		reply, err := client.Get(url) // TODO create a parameter
@@ -480,7 +480,7 @@ func (c *cloudProviderServer) NodeGroupDeleteNodes(ctx context.Context, req *pro
 			nodeId := req.Nodes[i].ProviderID
 			nodegroupId := req.Id
 			log.Printf("Id node %s cancelled for nodegroup %s \nu\nu\nu\nun\nu\n", nodeId, nodegroupId)
-			url := fmt.Sprintf("https://localhost:9009/nodegroup/scaledown?id=%s&nodegroupid=%s", nodeId, nodegroupId)
+			url := fmt.Sprintf("https://node-manager-svc:9009/nodegroup/scaledown?id=%s&nodegroupid=%s", nodeId, nodegroupId)
 
 			// Send a GET request to the nodegroup controller
 			reply, err := client.Get(url) // TODO create a parameter
@@ -524,7 +524,7 @@ func (c *cloudProviderServer) NodeGroupNodes(ctx context.Context, req *protos.No
 	}
 	// Take the parameter
 	nodegroupId := req.Id
-	url := fmt.Sprintf("https://localhost:9009/nodegroup/nodes?id=%s", nodegroupId)
+	url := fmt.Sprintf("https://node-manager-svc:9009/nodegroup/nodes?id=%s", nodegroupId)
 
 	// Send a GET request to the nodegroup controller
 	reply, err := client.Get(url) // TODO create a parameter
@@ -592,7 +592,7 @@ func (c *cloudProviderServer) NodeGroupTemplateNodeInfo(ctx context.Context, req
 		return nil, fmt.Errorf("failed to create a client: %v", err)
 	}
 	// Take the parameter
-	url := fmt.Sprintf("https://localhost:9009/nodegroup/template?id=%s", nodegroupTemplateId)
+	url := fmt.Sprintf("https://node-manager-svc:9009/nodegroup/template?id=%s", nodegroupTemplateId)
 
 	// Send a GET request to the nodegroup controller
 	reply, err := client.Get(url) // TODO create a parameter
@@ -635,27 +635,6 @@ func (c *cloudProviderServer) NodeGroupTemplateNodeInfo(ctx context.Context, req
 		},
 	}, nil
 
-	// return &protos.NodeGroupTemplateNodeInfoResponse{
-	// 	NodeInfo: &v1.Node{
-	// 		ObjectMeta: metav1.ObjectMeta{
-	// 			Name: "fake-node",
-	// 		},
-	// 		Status: v1.NodeStatus{
-	// 			Capacity: v1.ResourceList{
-	// 				v1.ResourceCPU:    resource.MustParse("2"),
-	// 				v1.ResourceMemory: resource.MustParse("4Gi"),
-	// 				v1.ResourcePods:   resource.MustParse("110"),
-	// 			},
-	// 			Allocatable: v1.ResourceList{
-	// 				v1.ResourceCPU:    resource.MustParse("2"),
-	// 				v1.ResourceMemory: resource.MustParse("4Gi"),
-	// 				v1.ResourcePods:   resource.MustParse("110"),
-	// 			},
-	// 		},
-	// 	},
-	// }, nil
-
-	//return nil, status.Error(codes.Unimplemented, "function NodeGroupTemplateNodeInfo is Unimplemented")
 }
 
 // GetOptions returns NodeGroupAutoscalingOptions that should be used for this particular

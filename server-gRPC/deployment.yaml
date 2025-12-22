@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server-grpc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: server-grpc
+  template:
+    metadata:
+      labels:
+        app: server-grpc
+    spec:
+      containers:
+      - name: server-grpc
+        image: server-grpc:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9007
+        volumeMounts:
+        - name: tls-cert
+          mountPath: /app/certificates
+          readOnly: true
+      volumes:
+      - name: tls-cert
+        secret:
+          secretName: tls-cert-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: server-grpc-svc
+spec:
+  selector:
+    app: server-grpc
+  ports:
+  - protocol: TCP
+    port: 9007
+    targetPort: 9007
+    nodePort: 30007
+  type: NodePort
