@@ -1,4 +1,4 @@
-# Kubernetes Cluster Autoscaler for Liqo
+# Kubernetes Multi-Cluster Autoscaler (with Liqo)
 
 The Kubernetes [Cluster Autoscaler project](https://github.com/kubernetes/autoscaler/tree/master/cluster-autoscaler) implements a scaling mechanism that adapts the **size** of the cluster to the current computing demand.
 For instance, when the current cluster does not have enough resources to schedule a new pod, it adds a new node to the cluster (_scale out_), and viceversa for _scale in_ operations (the cluster has an excess of resources so that an existing node can be released).
