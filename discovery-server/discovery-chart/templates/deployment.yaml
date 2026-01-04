@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discovery-server
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: discovery-server
+  template:
+    metadata:
+      labels:
+        app: discovery-server
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      containers:
+        - name: discovery-server
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 9010
+          volumeMounts:
+            - name: tls-cert
+              mountPath: /app/certificates
+              readOnly: true
+      volumes:
+        - name: tls-cert
+          secret:
+            secretName: {{ .Values.tlsSecretName }}
