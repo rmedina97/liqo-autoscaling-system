@@ -1,4 +1,4 @@
-# Quickstart
+# Quickstart (Prototype)
 
 This guide explains how to test **LAs** within your own environment.
 
@@ -8,12 +8,12 @@ This guide explains how to test **LAs** within your own environment.
 There is no maximum number of clusters supported.  
 However, for each cluster, you must extract its **resources** and **kubeconfig**, and apply the modifications described below.
 
-## Required Modifications
+## Required Modifications on code
 
 There are three main changes to apply:
 
 1. **Discovery Server Configuration**  
-   For every remote cluster, add the corresponding information inside the [`discovery-server`](../discovery-server/functions) component.  
+   For every remote cluster, add the corresponding information inside a secret named as the remote cluster, as shown in the secret.yaml example in this folder.  
    > The automatic agent that gathers this data is not implemented yet.
 
 2. **Node Manager Templates**  
@@ -27,15 +27,30 @@ There are three main changes to apply:
 3. **Local Node Name**  
    Change the name of the local node to your own, so that it is **not** managed by **Cluster Autoscaler** during scaling operations.
 
-## Launch Instructions
+## Installing Instructions
 
-Start the following Go components (in any order):
+There are two ways to deploy the three components:
 
+### 1. Using Helm
+From each component’s chart folder, run:
+
+```bash
+helm install server-grpc .
+helm install node-manager .
+helm install discovery .
 ```
-go run discovery.go
-go run server.go
-go run node-manager.go
+## 2. Using Kubernetes YAML
+
+Apply the manifests directly with `kubectl`:
+
+```bash
+kubectl apply -f deployment.yaml
+kubectl apply -f rbac.yaml
 ```
+
+**NOTE**: for testing purpose each component uses the same secret, named tls-cert-secret. It could be generated from the san.cnf in the certifacte folder.
+
+
 Once all three components are running, launch Cluster Autoscaler v1.30.4 (preferably the binary version). The following is the most basic command:
  `cluster-autoscaler --cloud-provider=externalgrpc --cloud-config=configGrpc.yaml --kubeconfig=path/to/kubeconfig`
 
