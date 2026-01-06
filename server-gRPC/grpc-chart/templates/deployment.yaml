@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server-grpc
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: server-grpc
+  template:
+    metadata:
+      labels:
+        app: server-grpc
+    spec:
+      containers:
+        - name: server-grpc
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          volumeMounts:
+            - name: tls-cert
+              mountPath: /app/certificates
+              readOnly: true
+      volumes:
+        - name: tls-cert
+          secret:
+            secretName: {{ .Values.tlsSecretName }}
